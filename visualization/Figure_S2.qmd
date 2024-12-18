@@ -1,0 +1,187 @@
+# Figure S2 {.unnumbered}
+
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+
+
+```{r}
+#| eval: false
+
+# Overarching Seurat object.
+path.to.sample <- "path_to_snRNAseq_sample_with_dimensional_reduction_enrichment"
+sample <- readRDS(path.to.sample)
+
+subtype.colors <- c("ATRT-TYR"    = "#87191c",
+                    "ATRT-SHH"    = "#243a76",
+                    "ATRT-MYC"    = "#096837")
+
+
+colors.use <- c("Tumor"              = "#C0C0C0",
+                "IPC-like"                 = "#be920e",
+                "CP-like"                  = "#be660e",
+                "Cilia-like"               = "#be0e0e",
+                "Mesenchymal-like"         = "#0ebe66",
+                "RG-like"                  = "#0497c8",
+                "NPC-like"                 = "#0466c8",
+                "OPC-like"                 = "#0435c8",
+                "Hypoxic"                  = "#92be0e")
+
+orig.colors <- c("ATRT-TYR-1" = "#feac81",
+                 "ATRT-TYR-2" = "#f78462",
+                 "ATRT-TYR-3" = "#b9563f",
+                 "ATRT-TYR-4" = "#f05b43",
+                 "ATRT-TYR-5" = "#c62320",
+                 "ATRT-TYR-6" = "#831818",
+                 "ATRT-SHH-1" = "#abc9c8",
+                 "ATRT-SHH-2" = "#72aeb6",
+                 "ATRT-SHH-3" = "#4692b0",
+                 "ATRT-SHH-4" = "#2f70a1",
+                 "ATRT-SHH-5" = "#bad6f9",
+                 "ATRT-SHH-6" = "#7db0ea",
+                 "ATRT-SHH-7" = "#447fdd",
+                 "ATRT-SHH-8" = "#134b73",
+                 "ATRT-SHH-9" = "#0a3351",
+                 "ATRT-MYC-1" = "#c2d6a4",
+                 "ATRT-MYC-2" = "#9cc184",
+                 "ATRT-MYC-3" = "#3c7c3d",
+                 "ATRT-MYC-4" = "#1f5b25")
+
+# Figure S2B ---------
+p1 <- SCpubr::do_DimPlot(sample, 
+                         group.by = "harmony_clusters", 
+                         split.by.combined = FALSE,
+                         reduction = "enrichment.umap",
+                         font.size = 16,
+                         raster = TRUE,
+                         raster.dpi = 2048,
+                         na.value = "grey90",
+                         pt.size = 8,
+                         legend.ncol = 3,
+                         label = TRUE,
+                         repel = TRUE,
+                         legend.position = "none")
+
+p3 <- SCpubr::do_DimPlot(sample, 
+                         group.by = "subtype", 
+                         split.by.combined = FALSE,
+                         reduction = "enrichment.umap",
+                         font.size = 16,
+                         raster = TRUE,
+                         raster.dpi = 2048,
+                         colors.use = subtype.colors,
+                         na.value = "grey90",
+                         pt.size = 8,
+                         legend.ncol = 3,
+                         label = TRUE,
+                         repel = TRUE,
+                         legend.position = "none")
+
+
+p2 <- SCpubr::do_DimPlot(sample, 
+                         group.by = "Annotation", 
+                         split.by.combined = FALSE,
+                         reduction = "enrichment.umap",
+                         font.size = 16,
+                         raster = TRUE,
+                         colors.use = colors.use,
+                         raster.dpi = 2048,
+                         na.value = "grey90",
+                         pt.size = 8,
+                         legend.ncol = 3,
+                         label = TRUE,
+                         repel = TRUE,
+                         legend.position = "none")
+layout <- "AAAABBBBCCCC
+           AAAABBBBCCCC
+           AAAABBBBCCCC
+           AAAABBBBCCCC
+           DDDDDDDDDDDD"
+
+p <- patchwork::wrap_plots(A = p1[[1]], 
+                           B = p3[[1]],
+                           C = p2[[1]],
+                           D = patchwork::guide_area(),
+                           design = layout,
+                           guides = "collect") &
+     patchwork::plot_annotation(theme = ggplot2::theme(legend.position = "bottom"))
+
+
+# Figure S2C ---------
+p <- SCpubr::do_ExpressionHeatmap(sample = sample,
+                                  features = rownames(sample),
+                                  group.by = c("enrichment_clusters", "harmony_clusters", "ID", "Annotation"),
+                                  flip = TRUE,
+                                  font.size = 12,
+                                  legend.title = "UCell score")
+p[[1]]$labels$x <- "Enrichment-based clusters"
+p[[1]]$labels$y <- "Gene sets"
+p[[2]]$labels$x <- "Integration-based clusters"
+p <- p & ggplot2::theme(axis.text.x.bottom = ggplot2::element_text(angle = 90))
+
+
+colors.use <- c("IPC-like"                 = "#be920e",
+                
+                "CP-like"                  = "#be660e",
+                "Cilia-like"               = "#be0e0e",
+                
+                "Mesenchymal-like"         = "#0ebe66",
+                
+                "RG-like"                  = "#0497c8",
+                "NPC-like"                 = "#0466c8",
+                "OPC-like"                 = "#0435c8",
+                
+                "Hypoxic"                  = "#92be0e",
+                "Immune-like"              = "#920ebe")
+
+
+# Figure S2D ---------
+
+path.to.snRNAseq.sample <- "path_to_snRNAseq_sample"
+sample <- readRDS(path.to.snRNAseq.sample)
+
+sample$ID <- as.character(sample$ID)
+sample$subtype <- factor(sample$subtype, levels = c("ATRT-TYR", "ATRT-SHH", "ATRT-MYC"))
+sample.use <- sample[, !(sample$Annotation %in% c("Tumor", "TME"))]
+sample.use <- sample[, sample$Full_Annotation %in% c("IPC-like", "CP-like", "Cilia-like", 
+                                                          "Mesenchymal-like", "RG-like", "NPC-like", 
+                                                          "OPC-like", "Immune-like", "Hypoxic")]
+sample.use$Annotation <- as.character(sample.use$Annotation)
+sample.use$Annotation <- factor(sample.use$Annotation, levels = c("IPC-like", "CP-like", "Cilia-like", "Immune-like", "OPC-like", "NPC-like", "RG-like", "Mesenchymal-like", "Hypoxic"))
+
+p <- SCpubr::do_BarPlot(sample.use,
+                        group.by = "Annotation",
+                        split.by = "ID",
+                        facet.by = "subtype_extended",
+                        position = "fill",
+                        order = TRUE,
+                        order.by = "IPC-like",
+                        flip = TRUE,
+                        colors.use = colors.use,
+                        font.size = 16,
+                        legend.ncol = 3,
+                        xlab = "")
+
+
+# Figure S2E ---------
+p <- SCpubr::do_BarPlot(sample.use,
+                        group.by = "ID",
+                        split.by = "Final_Annotation_Focus",
+                        position = "fill",
+                        order = TRUE,
+                        flip = TRUE,
+                        colors.use = orig.colors,
+                        font.size = 16,
+                        legend.ncol = 3,
+                        xlab = "")
+
+
+``` 
+
+

@@ -1,0 +1,191 @@
+# Figure 4 {.unnumbered}
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+
+```{r}
+#| eval: false
+
+path.to.dds.object <- "path_to_dds_object"
+dds <- readRDS(path.to.dds.object)
+
+path.to.marker.set <- "path_to_top100_markers"
+markers <- readRDS(path.to.marker.set)
+markers <- markers[c("IPC-like", "Cilia-like", "Mesenchymal-like", "NPC-like", "OPC-like")]
+
+path.to.equivalences <- "path_to_EnsID_to_SYMBOL_equivalences"
+annotLookup <- readRDS(path.to.equivalences)
+
+path.to.metadata <- "path_to_metadata"
+metadata <- readRDS(path.to.metadata)
+
+
+# Figure 4B ---------
+# Perform VST in the whole dataset.
+counts <- DESeq2::counts(dds, normalized = TRUE)
+vsd <- DESeq2::vst(dds, blind = TRUE)
+counts.transformed <- SummarizedExperiment::assay(vsd)
+
+# Add gene symbols to count data.
+counts.transformed <- counts.transformed %>% 
+                      as.data.frame() %>% 
+                      tibble::rownames_to_column(var = "EnsemblGene") %>% 
+                      dplyr::left_join(annotLookup, by = "EnsemblGene")
+counts.transformed <- counts.transformed[!is.na(counts.transformed$Gene), ]
+counts.transformed <- counts.transformed[!duplicated(counts.transformed$Gene), ]
+counts.transformed <- counts.transformed %>% 
+                      tibble::remove_rownames() %>% 
+                      tibble::column_to_rownames(var = "Gene") %>% 
+                      dplyr::select(-"EnsemblGene")
+
+# Get lists of genes.
+
+
+# Subset count data.
+markers.use <- c()
+for (name in names(markers)){
+  genes <- markers[[name]]
+  genes <- genes[genes %in% rownames(counts.transformed)]
+  genes <- genes[!duplicated(genes)]
+  names(genes) <- rep(name, length(genes))
+  markers.use <- append(markers.use, genes)
+}
+markers.use <- markers.use[!duplicated(markers.use)]
+
+# Subset by model.
+colnames.use.04 <- colnames(counts.transformed)[stringr::str_detect(colnames(counts.transformed), "AT04")]
+colnames.use.08 <- colnames(counts.transformed)[stringr::str_detect(colnames(counts.transformed), "AT08")]
+
+counts.use.04 <- counts.transformed[markers.use, colnames.use.04] %>% as.matrix()
+counts.use.08 <- counts.transformed[markers.use, colnames.use.08] %>% as.matrix()
+
+# Annotation dfs for Heatmaps.
+annotation.df <- data.frame("Celltype" = names(markers.use),
+                            "Gene" = markers.use) %>% 
+                 tibble::remove_rownames() %>% 
+                 tibble::column_to_rownames(var = "Gene")
+
+annotation.df2 <- metadata %>% dplyr::filter(.data$model == "ATRT04") %>% dplyr::select(dplyr::all_of(c("treatment", "model")))
+colnames(annotation.df2) <- c("Treatment", "Model")
+annotation.df3 <- metadata %>% dplyr::filter(.data$model == "ATRT08") %>% dplyr::select(dplyr::all_of(c("treatment", "model")))
+colnames(annotation.df3) <- c("Treatment", "Model")
+
+colors.use.reduced <- c("IPC-like"                 = "#be920e",
+                        "Cilia-like"               = "#be0e0e",
+                        "Mesenchymal-like"         = "#0ebe66",
+                        "NPC-like"                 = "#0466c8",
+                        "OPC-like"                 = "#0435c8")
+colors.use.model <- c("ATRT04" = "#243a76", "ATRT08" = "#096837")
+colors.use.treatment <- SCpubr:::generate_color_scale(c("DMSO", "Entinostat", "RO31", "Thiostrepton"))
+
+
+p1 <- pheatmap::pheatmap(mat = t(counts.use.04),
+                         scale = "column",
+                         cluster_rows = FALSE,
+                         cluster_cols = FALSE,
+                         show_colnames = FALSE,
+                         fontsize = 16,
+                         annotation_col = annotation.df,
+                         annotation_row = annotation.df2,
+                         color = grDevices::colorRampPalette(colors = rev(RColorBrewer::brewer.pal("RdBu", n = 11)))(100),
+                         annotation_colors = list("Celltype" = colors.use.reduced,
+                                                  "Model" = colors.use.model,
+                                                  "Treatment" = colors.use.treatment),
+                         border_color = "white",
+                         gaps_row = c(2, 4, 6), 
+                         gaps_col = c(100, 189, 287, 384)) %>% 
+       ggplotify::as.ggplot()
+
+p2 <- pheatmap::pheatmap(mat = t(counts.use.08),
+                         scale = "column",
+                         cluster_rows = FALSE,
+                         cluster_cols = FALSE,
+                         show_colnames = FALSE,
+                         fontsize = 16,
+                         annotation_col = annotation.df,
+                         annotation_row = annotation.df3,
+                         color = grDevices::colorRampPalette(colors = rev(RColorBrewer::brewer.pal("RdBu", n = 11)))(100),
+                         annotation_colors = list("Celltype" = colors.use.reduced,
+                                                  "Model" = colors.use.model,
+                                                  "Treatment" = colors.use.treatment),
+                         border_color = "white",
+                         gaps_row = c(2, 4, 6), 
+                         gaps_col = c(100, 189, 287, 384)) %>% 
+       ggplotify::as.ggplot()
+p <- p1 / p2
+
+
+# Figure 4C ---------
+markers <- c("MKI67", "MELK", "SOX9", "L1CAM", "FGFR4")
+
+# Perform VST in the whole dataset.
+counts <- DESeq2::counts(dds, normalized = TRUE)
+vsd <- DESeq2::vst(dds, blind = TRUE)
+counts.transformed <- SummarizedExperiment::assay(vsd)
+
+# Add gene symbols to count data.
+counts.transformed <- counts.transformed %>% 
+                      as.data.frame() %>% 
+                      tibble::rownames_to_column(var = "EnsemblGene") %>% 
+                      dplyr::left_join(annotLookup, by = "EnsemblGene")
+counts.transformed <- counts.transformed[!is.na(counts.transformed$Gene), ]
+counts.transformed <- counts.transformed[!duplicated(counts.transformed$Gene), ]
+counts.transformed <- counts.transformed %>% 
+                      tibble::remove_rownames() %>% 
+                      tibble::column_to_rownames(var = "Gene") %>% 
+                      dplyr::select(-"EnsemblGene")
+
+metadata <- readRDS("/omics/odcf/analysis/hipo/hipo_049/ATRT/ATRT_Publication_GitHub/datasets/ATRT_RNA_bulk_metadata_clean.rds")
+metadata.04 <- metadata[stringr::str_detect(metadata$condition, "AT04"), c("treatment", "model")]
+metadata.08 <- metadata[stringr::str_detect(metadata$condition, "AT08"), c("treatment", "model")]
+colnames(metadata.04) <- c("Treatment", "Model")
+colnames(metadata.08) <- c("Treatment", "Model")
+
+colors.use.model <- c("ATRT04" = "#243a76", "ATRT08" = "#096837")
+colors.use.treatment <- SCpubr:::generate_color_scale(c("DMSO", "Entinostat", "RO31", "Thiostrepton"))
+
+  
+  
+p1 <- pheatmap::pheatmap(t(counts.transformed[markers, 1:8]),
+                          cluster_rows = FALSE,
+                          cluster_cols = FALSE,
+                          scale = "column",
+                          cellwidth = 30,
+                          cellheight = 30,
+                          show_rownames = TRUE,
+                          show_colnames = TRUE,
+                          border_color = "white",
+                          annotation_row = metadata.04,
+                          annotation_colors = list("Model" = colors.use.model,
+                                                   "Treatment" = colors.use.treatment),
+                          angle_col = 90,
+                          gaps_row = c(2, 4, 6),
+                          color = rev(grDevices::colorRampPalette(colors = RColorBrewer::brewer.pal("RdBu", n = 11))(100))) %>% 
+        ggplotify::as.ggplot()
+
+p2 <- pheatmap::pheatmap(t(counts.transformed[markers, 9:16]),
+                          cluster_rows = FALSE,
+                          cluster_cols = FALSE,
+                          scale = "column",
+                          cellwidth = 30,
+                          cellheight = 30,
+                          show_rownames = TRUE,
+                          show_colnames = TRUE,
+                          border_color = "white",
+                          annotation_row = metadata.08,
+                          gaps_row = c(2, 4, 6),
+                          annotation_colors = list("Model" = colors.use.model,
+                                                   "Treatment" = colors.use.treatment),
+                          angle_col = 90,
+                          color = rev(grDevices::colorRampPalette(colors = RColorBrewer::brewer.pal("RdBu", n = 11))(100))) %>% 
+        ggplotify::as.ggplot()
+
+p <- p1 | p2
+
+```

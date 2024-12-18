@@ -1,0 +1,216 @@
+# Figure S5 {.unnumbered}
+
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+  
+```{r}
+#| eval: false
+# Enrique Blanco Carmona
+# e.blancocarmona@kitz-heidelberg.de
+# PhD Student – Clinical Bioinformatics
+# Division of Pediatric Neurooncology (B062)
+# DKFZ-KiTZ | Germany
+
+
+
+markers.path <- "path_to_supervised_annotation"
+markers <- readRDS(markers.path)
+
+markers.stem.path <- "path_to_stemness_markers"
+markers.stem <- readRDS(markers.stem.path)
+markers$PSC <- markers.stem$PSC
+markers$ESC <- markers.stem$ESC
+markers$NSPC <- markers.stem$NSPC
+
+
+markers <- markers[stringr::str_replace_all(names(markers), "\\.", "_")]
+
+
+
+
+# Figure S5A ---------
+path.to.sample <- "path_to_scRNAseq_sample"
+sample <- readRDS(path.to.sample)
+
+out <- SCpubr::do_EnrichmentHeatmap(sample, 
+									input_gene_list = markers, 
+									flavor = "UCell", 
+									return_object = TRUE,
+									scale_scores = FALSE)
+
+sample <- out$Object
+sample <- Seurat::ScaleData(sample)
+sample <- Seurat::RunPCA(sample, features = rownames(sample))
+dims <- 1:ncol(sample@reductions$pca@cell.embeddings)
+sample <- Seurat::RunUMAP(sample, dims = dims)
+sample <- Seurat::FindNeighbors(sample, reduction = "pca", dims = dims)
+sample <- Seurat::FindClusters(sample, reduction = "pca", dims = dims, resolution = 1.5)
+
+colors.use <- list("IPC-like"                 = "#be920e",
+                   "Other" = "grey90")
+
+p1 <- SCpubr::do_DimPlot(sample = sample,
+                         group.by = "Annotation",
+                         colors.use = colors.use,
+                         font.size = 16,
+                         label.size = 4,
+                         raster = TRUE,
+                         raster.dpi = 2048,
+                         pt.size = 16,
+                         legend.icon.size = 8,
+                         legend.ncol = 2,
+                         legend.position = "bottom")
+
+p3 <- SCpubr::do_FeaturePlot(sample = sample,
+                             features = "Neuronal.IPC",
+                             slot = "scale.data",
+                             enforce_symmetry = TRUE,
+                             font.size = 16,
+                             label.size = 4,
+                             raster = TRUE,
+                             raster.dpi = 2048,
+                             pt.size = 16,
+                             order = TRUE,
+                             legend.position = "bottom")
+
+p2 <- SCpubr::do_FeaturePlot(sample = sample,
+                             features = "Cycle",
+                             slot = "scale.data",
+                             enforce_symmetry = TRUE,
+                             font.size = 16,
+                             label.size = 4,
+                             raster = TRUE,
+                             raster.dpi = 2048,
+                             pt.size = 16,
+                             order = TRUE,
+                             legend.position = "bottom")
+
+
+p <- p1 | p3 | p2 
+
+
+
+# Figure S5B ---------
+path.to.sample <- "path_to_snSMARTseq_sample"
+sample <- readRDS(path.to.sample)
+
+out <- SCpubr::do_EnrichmentHeatmap(sample, 
+									input_gene_list = markers, 
+									flavor = "UCell", 
+									return_object = TRUE,
+									scale_scores = FALSE)
+
+sample <- out$Object
+sample <- Seurat::ScaleData(sample)
+sample <- Seurat::RunPCA(sample, features = rownames(sample))
+dims <- 1:ncol(sample@reductions$pca@cell.embeddings)
+sample <- Seurat::RunUMAP(sample, dims = dims)
+sample <- Seurat::FindNeighbors(sample, reduction = "pca", dims = dims)
+sample <- Seurat::FindClusters(sample, reduction = "pca", dims = dims, resolution = 1.5)
+
+
+colors.use <- list("IPC-like"                 = "#be920e",
+                   "Other" = "grey90")
+p1 <- SCpubr::do_DimPlot(sample = sample,
+                         group.by = "Annotation",
+                         colors.use = colors.use,
+                         font.size = 16,
+                         label.size = 4,
+                         raster = TRUE,
+                         raster.dpi = 2048,
+                         pt.size = 16,
+                         legend.icon.size = 8,
+                         legend.ncol = 2,
+                         legend.position = "bottom")
+
+p3 <- SCpubr::do_FeaturePlot(sample = sample,
+                             features = "Neuronal.IPC",
+                             slot = "scale.data",
+                             enforce_symmetry = TRUE,
+                             font.size = 16,
+                             label.size = 4,
+                             raster = TRUE,
+                             raster.dpi = 2048,
+                             pt.size = 16,
+                             order = TRUE,
+                             legend.position = "bottom")
+
+p2 <- SCpubr::do_FeaturePlot(sample = sample,
+                             features = "Cycle",
+                             slot = "scale.data",
+                             enforce_symmetry = TRUE,
+                             font.size = 16,
+                             label.size = 4,
+                             raster = TRUE,
+                             raster.dpi = 2048,
+                             pt.size = 16,
+                             order = TRUE,
+                             legend.position = "bottom")
+
+p <- p1 | p3 | p2 
+
+# Figure S5C ---------
+path.to.sample <- "path_to_scSMARTseq_sample"
+sample <- readRDS(path.to.sample)
+
+out <- SCpubr::do_EnrichmentHeatmap(sample, 
+									input_gene_list = markers, 
+									flavor = "UCell", 
+									return_object = TRUE,
+									scale_scores = FALSE)
+
+sample <- out$Object
+sample <- Seurat::ScaleData(sample)
+sample <- Seurat::RunPCA(sample, features = rownames(sample))
+dims <- 1:ncol(sample@reductions$pca@cell.embeddings)
+sample <- Seurat::RunUMAP(sample, dims = dims)
+sample <- Seurat::FindNeighbors(sample, reduction = "pca", dims = dims)
+sample <- Seurat::FindClusters(sample, reduction = "pca", dims = dims, resolution = 1.5)
+
+colors.use <- list("IPC-like"                 = "#be920e",
+                   "Other" = "grey90")
+p1 <- SCpubr::do_DimPlot(sample = sample,
+                         group.by = "Annotation",
+                         colors.use = colors.use,
+                         font.size = 16,
+                         label.size = 4,
+                         raster = TRUE,
+                         raster.dpi = 2048,
+                         pt.size = 16,
+                         legend.icon.size = 8,
+                         legend.ncol = 2,
+                         legend.position = "bottom")
+
+p3 <- SCpubr::do_FeaturePlot(sample = sample,
+                             features = "Neuronal.IPC",
+                             slot = "scale.data",
+                             enforce_symmetry = TRUE,
+                             font.size = 16,
+                             label.size = 4,
+                             raster = TRUE,
+                             raster.dpi = 2048,
+                             pt.size = 16,
+                             order = TRUE,
+                             legend.position = "bottom")
+
+p2 <- SCpubr::do_FeaturePlot(sample = sample,
+                             features = "Cycle",
+                             slot = "scale.data",
+                             enforce_symmetry = TRUE,
+                             font.size = 16,
+                             label.size = 4,
+                             raster = TRUE,
+                             raster.dpi = 2048,
+                             pt.size = 16,
+                             order = TRUE,
+                             legend.position = "bottom")
+
+p <- p1 | p3 | p2 
+```

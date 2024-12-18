@@ -1,0 +1,53 @@
+# Generate DESeq2 Dataset {.unnumbered}
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+
+```{r}
+#| eval: false
+library(magrittr)
+
+count.matrix <- "path_to_counts"
+metadata.matrix <- "path_to_metadata"
+# Read the counts and store it as RDS.
+counts <- read.table(count.matrix, sep = " ") %>% 
+          tibble::remove_rownames() %>% 
+          tibble::column_to_rownames(var = "EnsemblGene")
+
+# Read metadata and store it as RDS.
+metadata <- readr::read_table(metadata.matrix) 
+metadata <- as.data.frame(metadata) %>% tibble::column_to_rownames(var = "sampleName")
+
+# Make all variables factors
+metadata$condition <- factor(metadata$condition)
+metadata$replicate <- factor(metadata$replicate)
+metadata$treatment <- factor(metadata$treatment)
+metadata$model <- factor(metadata$model)
+
+# Ensure order of metadata and order of counts columns are the same.
+assertthat::assert_that(isTRUE(sum(colnames(counts) == rownames(metadata)) == 16),
+                        msg = "The order of columns in the counts and rows in metadata is not the same.")
+
+# And filter for low expressed genes 
+## Keep genes with at least 10 counts
+
+min.counts <- 10
+
+keep <- rowSums(counts) >= min.counts
+counts <- counts[keep, ] 
+
+# Create the DESeq2 object.
+dds <- DESeq2::DESeqDataSetFromMatrix(countData = counts,
+                                      colData = metadata,
+                                      design = ~ condition)
+
+
+# Save this dds file file and use it in the rest of the scripts.
+```
+

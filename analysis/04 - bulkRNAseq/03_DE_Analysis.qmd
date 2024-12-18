@@ -1,0 +1,96 @@
+# DE analysis {.unnumbered}
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+
+```{r}
+#| eval: false
+
+library(magrittr)
+
+dds.path <- "path_to_dds_file"
+dds <- readRDS(dds.path)
+
+# Table of equivalences between ENSID to gene SYMBOL
+path.to.equivalences <- "path_to_ensID_to_SYMBOL_equivalences"
+annotLookup <- readRDS(path.to.equivalences)
+
+# Run DESeq.
+dds <- DESeq2::DESeq(object = dds)
+
+# Get the comparison contrasts.
+contrasts <- c(paste0(c("AT04_Enti", "AT04_RO31","AT04_Thio"), "_vs_", "AT04_DMSO"),
+               paste0(c("AT08_Enti", "AT08_RO31","AT08_Thio"), "_vs_", "AT08_DMSO"))
+
+
+# Compute DE.
+res.list <- list()
+
+# Iterate across pair of conditions.
+for (cond1 in levels(dds$condition)){
+  for (cond2 in levels(dds$condition)){
+    contrast <- paste0(cond1, "_vs_", cond2)
+    if (isTRUE(contrast %in% contrasts)){
+      # Compute DE genes.
+      res <- DESeq2::results(dds, contrast = c("condition", cond1,  cond2))
+      # Add matching gene symbols.
+      res <- res %>% 
+             as.data.frame() %>% 
+             tibble::rownames_to_column(var = "EnsemblGene") %>% 
+             dplyr::left_join(annotLookup, by = "EnsemblGene")
+      
+      # Remove duplicated gene symbols.
+      res <- res[!duplicated(res$Gene), ]
+      
+      # Remove NAs in gene symbols
+      res <- res[!is.na(res$Gene), ]
+      
+      # Add gene symbols to rownames.
+      res <- res %>% 
+             tibble::remove_rownames() %>% 
+             tibble::column_to_rownames(var = "Gene")
+      
+      # Filter for significance and order by descending logFC and pvalue.
+      res <- res %>% 
+             dplyr::filter(padj <= 0.05) %>% 
+             dplyr::arrange(.data$padj, dplyr::desc(abs(.data$log2FoldChange)))
+      
+      # Add result to result list.
+      res.list[[contrast]] <- res
+    }
+  }
+}
+
+# Save the results as an RDS file.
+
+
+# Retrieve top 100 DE genes per contrast and condition.
+list.genes <- list()
+
+for (contrast in names(res.list)){
+  # Drugs.
+  cond1 <- stringr::str_split(contrast, pattern = "_vs_")[[1]][1]
+  # DMSO.
+  cond2 <- stringr::str_split(contrast, pattern = "_vs_")[[1]][2]
+  
+  res <- res.list[[contrast]]
+  
+  genes.up <- res %>% dplyr::filter(.data$log2FoldChange > 0) %>% rownames
+  genes.up <- genes.up[1:100]
+  
+  genes.down <- res %>% dplyr::filter(.data$log2FoldChange < 0) %>% rownames
+  genes.down <- genes.down[1:100]
+  
+  list.genes[[paste0(contrast, "_MarkersFor_", cond1)]] <- genes.up
+  list.genes[[paste0(contrast, "_MarkersFor_", cond2)]] <- genes.down
+}
+
+# Save the results as an RDS file.
+```
+

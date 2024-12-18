@@ -1,0 +1,40 @@
+# Supervised Annotation {.unnumbered}
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+```
+
+```{r}
+#| eval: false
+
+# Enrique Blanco Carmona
+# e.blancocarmona@kitz-heidelberg.de
+# Postdoctoral researcher.
+# Division of Pediatric Neurooncology (B062)
+# DKFZ-KiTZ | Germany
+
+# RDS object and annotation genesets are loaded.
+
+
+Seurat::DefaultAssay(sample) <- "RNA"
+# This computes Enrichment scores and sets them up as an assay.
+out <- SCpubr::do_EnrichmentHeatmap(sample, input_gene_list = nmf_markers, flavor = "UCell", return_object = TRUE)
+
+# Retrieve the Seurat object.
+sample <- out$Object
+
+# Scale data and perform dimensional reduction.
+sample <- Seurat::ScaleData(sample)
+sample <- Seurat::RunPCA(sample, features = rownames(sample))
+sample <- Seurat::RunUMAP(sample, dims = 1:7)
+sample <- Seurat::FindNeighbors(sample, reduction = "pca", dims = 1:7)
+sample <- Seurat::FindClusters(sample, reduction = "pca", dims = 1:7)
+
+# Annotate clusters with clear enrichment.
+
+```
+
+

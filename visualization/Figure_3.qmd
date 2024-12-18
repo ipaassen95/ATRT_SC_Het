@@ -1,0 +1,855 @@
+# Figure 3 {.unnumbered}
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+
+```{r}
+#| eval: false
+# 3B
+library(Seurat)
+library(tidyverse)
+
+srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
+
+# Use the Seurat built-in DotPlot function to pull the necessary data easily
+data <- DotPlot(srat, features = c("S100A1",'MGP',"TNNT1","H2AFJ",
+                                   "THBS2","CARMN","TBX18","COL6A3",
+                                   "VWF","ADGRL4","ERG","EGFL7",
+                                   "DNAAF1","ADGB","CFAP61","CFAP157",
+                                   "PTPRC","ADAM28","PIK3R5","FYB1",
+                                   "TNC","ETNPPL","MAPK4","BAALC",
+                                   "MTUS2","OCA2","HTR2C","GRM8",
+                                   "MOBP","MOG","CARNS1","SLCO1A2",
+                                   "CDC25C","KIF18B","KIF14","CENPE",
+                                   "MYT1L","DCX","KCNH7","NYAP2",
+                                   "KCNQ5","MEOX2","DNER","SNTG1",
+                                   "DPPA4","SLC9A2","CRYM","CHSY3",
+                                   "DLGAP2","GRIN1","ASIC2","CHD5"),
+                scale.max = 60)$data
+
+# Re-order IDs for plotting
+data$id <- factor(data$id, levels = rev(c("Astrocytes",
+                                          "Neurons",
+                                          "OPC",
+                                          "Microglia_Immune",
+                                          "Endothelial",
+                                          "Mural",
+                                          "IPC-like",
+                                          "CP-like",
+                                          "Cilia-like",
+                                          "OPC-like",
+                                          "NPC-like",
+                                          "RG-like",
+                                          "Mesenchymal-like")),
+                  labels = rev(c("Astrocytes",
+                                 "Neurons",
+                                 "OPC",
+                                 "Microglia & immune",
+                                 "Endothelial",
+                                 "Pericytes",
+                                 "IPC-like",
+                                 "CP-like",
+                                 "Cilia-like",
+                                 "OPC-like",
+                                 "NPC-like",
+                                 "RG-like",
+                                 "Mesenchymal-like")))
+
+data$features.plot <- factor(data$features.plot, levels = (c("TNC","ETNPPL","MAPK4","BAALC",
+                                                             "DLGAP2","GRIN1","ASIC2","CHD5",
+                                                             "MOBP","MOG","CARNS1","SLCO1A2",
+                                                             "PTPRC","ADAM28","PIK3R5","FYB1",
+                                                             "VWF","ADGRL4","ERG","EGFL7",
+                                                             "THBS2","CARMN","TBX18","COL6A3",
+                                                             "CDC25C","KIF18B","KIF14","CENPE",
+                                                             "MTUS2","OCA2","HTR2C","GRM8",
+                                                             "DNAAF1","ADGB","CFAP61","CFAP157",
+                                                             "KCNQ5","MEOX2","DNER","SNTG1",
+                                                             "MYT1L","DCX","KCNH7","NYAP2",
+                                                             "DPPA4","SLC9A2","CRYM","CHSY3",
+                                                             "S100A1",'MGP',"TNNT1","H2AFJ")))
+
+
+
+ggplot(data, aes(y = id, x = features.plot, size = pct.exp, fill = avg.exp.scaled)) +
+  geom_point(shape=21, stroke = 0.1) +
+  theme_classic() +
+  scale_size_area(max_size = 3.5) +
+  scale_fill_distiller(palette = "RdBu", limits=c(-2.5,2.5)) +
+  labs(fill="Average expression", size = "Percent expressed") +
+  xlab("") +
+  ylab("") +
+  theme(axis.text.y = element_text(size=6, color = "black"),
+        axis.text.x = element_text(size=5, color = "black", angle = 90, hjust = 1, face = "italic"),
+        legend.text = element_text(size=6, color = "black"),
+        legend.title = element_text(size=6, color = "black"),
+        legend.key.size = unit(0.75, 'lines'),
+        legend.position = "none", 
+        axis.ticks = element_line(size = 0.25), 
+        axis.line = element_line(size = 0.25))
+```
+
+```{python}
+#| eval: false
+# 3C
+import numpy as np
+import pandas as pd
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+import scanpy as sc
+import squidpy as sq
+
+import os
+from copy import deepcopy
+
+#### This script was run per tumor sample to generate the plots in Figures 3C and S7C, but the steps are identical
+
+# Read expression matrix
+adata = sc.read_10x_h5(
+    filename = "cell_feature_matrix.h5"
+)
+
+# Read the cell info file
+df = pd.read_csv(
+    "cells.csv.gz"
+)
+
+df.set_index(adata.obs_names, inplace = True)
+adata.obs = df.copy()
+
+adata.obsm["spatial"] = adata.obs[["x_centroid","y_centroid"]].copy().to_numpy()
+
+# Read RCTD annotations
+annotations = pd.read_csv(
+    "ANNOTATIONS.csv"
+)
+
+adata_sub = adata[annotations["cell_id"]].copy()
+del(adata)
+
+annotations.set_index(adata_sub.obs_names, inplace = True)
+adata_sub.obs["type"]= annotations["group"].copy().astype('category')
+
+import matplotlib.colors
+
+colors = ["#BA531CFF","#be660e","#be0e0e","#5E4CCDFF","#be920e","#0ebe66","#0092AAFF","#a32978","#0466c8",
+         "#BFBFBF","#787F00FF","#009257FF","#0435c8", "#0497c8"]
+
+cmap = matplotlib.colors.ListedColormap(colors)
+
+
+sq.pl.spatial_scatter(adata_sub, 
+                      shape = None, 
+                      color = "type", 
+                      size = 1, 
+                      library_id = "spatial",
+                      img = False, 
+                      figsize = (15,15),
+                      palette = cmap,
+                      frameon = False,
+                      colorbar = False,
+                      title = "",
+                      legend_loc = None
+                     )
+```
+
+```{r}
+#| eval: false
+# 3C - Cells 
+library(Seurat)
+library(tidyverse)
+
+srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
+
+# Create cell segmentation object
+cell_boundaries_df <- as.data.frame(data.table::fread("cell_boundaries.csv.gz")) # Xenium on-board analysis output
+cell_boundaries_df <- cell_boundaries_df[cell_boundaries_df$cell_id %in% colnames(srat),1:3]
+names(cell_boundaries_df) <- c("cell", "x", "y")
+segmentation <- CreateSegmentation(cell_boundaries_df)
+rm(cell_boundaries_df)
+
+# Create centroids object
+cell_info <- as.data.frame(data.table::fread( "cells.csv.gz"))
+cell_centroid_df <- data.frame(
+  x = cell_info$x_centroid,
+  y = cell_info$y_centroid,
+  cell = cell_info$cell_id,
+  stringsAsFactors = FALSE
+)
+rm(cell_info)
+cell_centroid_df <- cell_centroid_df[cell_centroid_df$cell %in% colnames(srat),]
+centroids <- CreateCentroids(cell_centroid_df)
+
+# Add FOV to Seurat object
+coords <- CreateFOV(
+  coords = list( centroids = centroids, segmentation = segmentation),
+  type = c("segmentation", "centroids"),
+  assay = "Xenium"
+)
+
+srat[["fov"]] <- coords
+rm(segmentation, centroids, coords)
+
+# Crop object and make the plot
+cropped.coords <- Crop(srat[["fov"]], y = c(5300, 5700), x = c(3800, 4200), coords = "plot")
+srat[["crop"]] <- cropped.coords
+srat$group[is.na(srat$group)] <- "Unannotated"
+Idents(srat) <- "group"
+
+cpal <- c("Astrocytes" = "#BA531CFF",
+          "Cilia-like" = "#be0e0e",
+          "CP-like" = "#be660e",
+          "Endothelial" = "#5E4CCDFF",
+          "IPC-like" = "#be920e",
+          "Mesenchymal-like" = "#0ebe66",
+          "Microglia_Immune" = "#0092AAFF",
+          "Mural" = "#a32978",
+          "Neurons" = "#787F00FF",
+          "NPC-like" = "#0466c8",
+          "OPC" = "#009257FF",
+          "OPC-like" = "#0435c8",
+          "RG-like" = "#0497c8",
+          "Necrotic" = "grey55",
+          "Unannotated" = "grey55")
+
+
+ImageDimPlot(srat, fov = "crop", boundaries = "segmentation", dark.background = F, flip_xy = T, group.by = "group", cols = cpal, axes = F, border.size = NA, border.color = NA) + NoLegend()
+
+# 3D
+library(Seurat)
+library(tidyverse)
+
+
+srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
+data <- srat@meta.data %>% select(group, sample)
+
+# Keep only malignant cells
+data <- data %>% filter(group %in% c( "IPC-like",
+                                      "CP-like",
+                                      "Cilia-like",
+                                      "OPC-like",
+                                      "NPC-like",
+                                      "RG-like",
+                                      "Mesenchymal-like"))
+
+# Build proportion table
+df <- as.data.frame(prop.table(table(data$group,data$sample), 2))
+
+
+df$subtype <- plyr::mapvalues(df$Var2,
+                              from = c("ATRT-05",
+                                       "ATRT-15-RV4",
+                                       "ATRT-173",
+                                       "ATRT-207",
+                                       "ATRT-243",
+                                       "ATRT-256",
+                                       "ATRT-340"),
+                              to = c("ATRT-SHH","ATRT-TYR","ATRT-SHH","ATRT-MYC","ATRT-MYC","ATRT-SHH","ATRT-TYR")
+)
+colnames(df) <- c("Annotation","Tumor","Freq","Subtype")
+
+
+
+cpal <- c("Astrocytes" = "#BA531CFF",
+          "Cilia-like" = "#be0e0e",
+          "CP-like" = "#be660e",
+          "Endothelial" = "#5E4CCDFF",
+          "IPC-like" = "#be920e",
+          "Mesenchymal-like" = "#0ebe66",
+          "Microglia & immune" = "#0092AAFF",
+          "Pericytes" = "#a32978",
+          "Neurons" = "#787F00FF",
+          "NPC-like" = "#0466c8",
+          "OPC" = "#009257FF",
+          "OPC-like" = "#0435c8",
+          "RG-like" = "#0497c8",
+          "Necrotic" = "grey55")
+
+df$Annotation <- factor(df$Annotation, levels = c("IPC-like",
+                                                  "CP-like",
+                                                  "Cilia-like",
+                                                  "OPC-like",
+                                                  "NPC-like",
+                                                  "RG-like",
+                                                  "Mesenchymal-like",
+                                                  "Necrotic"))
+
+
+df$Tumor <- factor(df$Tumor, levels = c("ATRT-05",
+                                        "ATRT-173",
+                                        "ATRT-256",
+                                        "ATRT-15-RV4",
+                                        "ATRT-340",
+                                        "ATRT-207",
+                                        "ATRT-243"))
+
+ggplot(df, aes(x = Tumor, y = Freq, fill = Annotation)) +
+  geom_bar(position = "fill", stat = "identity", color = "black", linewidth = 0.1) +
+  xlab("") +
+  ylab("Proportion of tumor cells") +
+  scale_fill_manual(values = cpal) +
+  theme_classic() +
+  facet_grid(cols = vars(Subtype), scales = "free", space = "free") +
+  theme(legend.title = element_blank(),
+        legend.text = element_text(size = 6, color = "black"),
+        legend.position = "none",
+        axis.title = element_text(size = 6, colour = "black"),
+        axis.text = element_text(size = 6, color = "black"),
+        axis.text.x = element_text(angle = 90, hjust = 1),
+        axis.ticks = element_line(size = 0.25), 
+        axis.line = element_line(size = 0.25), 
+        strip.text = element_text(size = 6, color = "black"),
+        strip.background = element_blank(),
+        legend.key.size = unit(3,"mm"),
+        legend.key.spacing.y = unit(1,"mm"))
+
+# 3E - Center 
+library(tidyverse)
+
+
+# Read enrichment files generated by NeighborhoodAnalysis.py and combine
+files <- list.files(path = "python", pattern = "SpatInt.csv", full.names = T)
+ls <- lapply(files, read.csv)
+names(ls) <- gsub("python/","", gsub("-SpatInt.csv", "", files))
+for (f in seq_along(ls)){
+  ls[[f]]$line <- names(ls)[f] 
+}
+
+df <- purrr::reduce(ls, rbind.data.frame)
+df <- df[,-1]
+
+
+# Read interaction files generated by NeighborhoodAnalysis.py, format and combine
+ints.files <- list.files(path = "python", pattern = "_interactions.csv", full.names = T)
+ints <- lapply(ints.files, read.csv)
+for(d in seq_along(ints)) {
+  ints[[d]] <- ints[[d]][,-1]
+  
+  colnames(ints[[d]]) <- rownames(ints[[d]]) <- c("Astrocytes",
+                                      "CP-like",
+                                      "Cilia-like",
+                                      "Endothelial",
+                                      "IPC-like",
+                                      "Mesenchymal-like",
+                                      "Microglia/immune",
+                                      "VLMC",
+                                      "NPC-like",
+                                      "Neurons",
+                                      "OPC",
+                                      "OPC-like",
+                                      "RG-like")
+  
+  ints[[d]] <- ints[[d]][c(2,3,5,6,9,12,13),c(2,3,5,6,9,12,13)]
+  
+  ints[[d]] <- ints[[d]] %>% rownames_to_column("neighbour_phenotype") %>% pivot_longer(2:8, names_to = "phenotype", values_to = "n")
+  
+  ints[[d]] <- ints[[d]] %>% group_by(phenotype) %>% mutate(freq = n / sum(n))
+}
+
+names(ints) <- gsub("ATRT","ATRT-",gsub("python/","",gsub("_interactions.csv","",ints.files)))
+
+for(d in seq_along(ints)) {
+  ints[[d]][,"line"] <- names(ints)[d]
+}
+
+
+
+
+
+# Compute ATRT-TYR group
+ints.sub <- purrr::reduce(ints[c(3,8)], rbind.data.frame)
+ints.sub <- ints.sub %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean_interactions = mean(freq))
+
+
+mn <- df %>% filter(line %in% c("ATRT-340","ATRT-15-RV4")) %>% filter(pvalue_imageid < 0.01) %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean = mean(imageid))
+
+data <- merge(mn, ints.sub, by = c("phenotype","neighbour_phenotype"))
+data <- data  %>% filter(phenotype %in% c("IPC-like","CP-like","Cilia-like"))
+data$subgroup <- "TYR"
+data_comb <- data
+
+
+
+
+# Compute ATRT-MYC group
+ints.sub <- purrr::reduce(ints[c(6,5)], rbind.data.frame)
+ints.sub <- ints.sub %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean_interactions = mean(freq))
+
+
+mn <- df %>% filter(line %in% c("ATRT-243","ATRT-207")) %>% filter(pvalue_imageid < 0.01) %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean = mean(imageid))
+data <- merge(mn, ints.sub, by = c("phenotype","neighbour_phenotype"))
+
+data <- data  %>% filter(phenotype %in% c("IPC-like","Mesenchymal-like"))
+data$subgroup <- "MYC"
+
+data_comb <- rbind.data.frame(data,data_comb)
+
+
+
+# Compute ATRT-SHH_OPC group
+ints.sub <- ints[["ATRT-256"]] %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean_interactions = mean(freq))
+mn <- df %>% filter(line == "ATRT-256")
+
+data <- merge(mn, ints.sub, by = c("phenotype","neighbour_phenotype"))
+colnames(data)[3] <- "mean"
+data <- data  %>% filter(phenotype %in% c("IPC-like","OPC-like","RG-like"))
+data$subgroup <- "SHH_OPC"
+data_comb <- rbind.data.frame(data[,c(1,2,3,6,7)],data_comb)
+
+
+
+
+
+# Compute ATRT-SHH_NPC group
+ints.sub <- purrr::reduce(ints[c(1,4)], rbind.data.frame)
+ints.sub <- ints.sub %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean_interactions = mean(freq))
+
+
+mn <- df %>% filter(line %in% c("ATRT-05","ATRT-173")) %>% filter(pvalue_imageid < 0.01) %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean = mean(imageid))
+
+data <- merge(mn, ints.sub, by = c("phenotype","neighbour_phenotype"))
+
+data <- data  %>% filter(phenotype %in% c("IPC-like","RG-like","NPC-like"))
+data$subgroup <- "SHH_NPC"
+
+data_comb <- rbind.data.frame(data,data_comb)
+
+data_comb$subgroup <- factor(data_comb$subgroup, levels = c("SHH_NPC",
+                                                            "SHH_OPC",
+                                                            "TYR",
+                                                            "MYC"))
+
+data_comb$neighbour_phenotype <- factor(data_comb$neighbour_phenotype,
+                                        levels = rev(c("NPC-like",
+                                                   "RG-like",
+                                                   "OPC-like",
+                                                   "IPC-like",
+                                                   "CP-like",
+                                                   "Cilia-like",
+                                                   "Mesenchymal-like")))
+
+data_comb$phenotype <- factor(data_comb$phenotype,
+                                        levels = (c("NPC-like",
+                                                    "OPC-like",
+                                                       "RG-like",
+                                                       
+                                                    "CP-like",
+                                                    "Cilia-like",
+                                                    "Mesenchymal-like",
+                                                       "IPC-like"
+                                                       
+                                                       )))
+
+
+ggplot(data_comb %>% filter(phenotype != "IPC-like" ), aes( x = phenotype, y = neighbour_phenotype, fill = mean, size = mean_interactions)) +
+  geom_point(shape=21, stroke = 0.25) +
+  scale_fill_distiller(palette = "RdBu", limits=c(-1,1)) +
+  scale_size_continuous(range = c(1,3))+
+  facet_wrap(vars(subgroup), scales = "free_x", ncol = 4) +
+  ylab("Neighbor cell type") +
+  xlab("Target cell type") +
+  theme_classic() +
+  labs(size = "Mean percentage in neighborhood",
+       fill = "Mean enrichment") +
+  theme(axis.title = element_text(size = 6, color = "black"),
+        axis.text = element_text(size = 6, color = "black"),
+        strip.background = element_blank(),
+        strip.text = element_blank(),
+        axis.ticks = element_line(size = 0.25), 
+        axis.line = element_line(size = 0.25),
+        legend.position = "none",
+        legend.text = element_text(size=6, color = "black"),
+        legend.title = element_text(size=6, color = "black"),
+        legend.key.size = unit(0.75, 'lines'),
+        panel.spacing.y = unit(5, "mm")) +
+  guides(size=guide_legend(title.position = "top",
+                           override.aes = list(fill = "black")),
+         fill=guide_colourbar(title.position = "top", 
+                              barheight = 3.5, barwidth = 0.5,
+                              frame.colour = "black", ticks.colour = "black", label = T,
+                              frame.linewidth = 0.1))
+
+# 3E - Right
+library(Seurat)
+library(tidyverse)
+
+srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
+
+# Create cell segmentation object
+cell_boundaries_df <- as.data.frame(data.table::fread("cell_boundaries.csv.gz")) # Xenium on-board analysis output
+cell_boundaries_df <- cell_boundaries_df[cell_boundaries_df$cell_id %in% colnames(srat),1:3]
+names(cell_boundaries_df) <- c("cell", "x", "y")
+segmentation <- CreateSegmentation(cell_boundaries_df)
+rm(cell_boundaries_df)
+
+# Create centroids object
+cell_info <- as.data.frame(data.table::fread( "cells.csv.gz"))
+cell_centroid_df <- data.frame(
+  x = cell_info$x_centroid,
+  y = cell_info$y_centroid,
+  cell = cell_info$cell_id,
+  stringsAsFactors = FALSE
+)
+rm(cell_info)
+cell_centroid_df <- cell_centroid_df[cell_centroid_df$cell %in% colnames(srat),]
+centroids <- CreateCentroids(cell_centroid_df)
+
+# Add FOV to Seurat object
+coords <- CreateFOV(
+  coords = list( centroids = centroids, segmentation = segmentation),
+  type = c("segmentation", "centroids"),
+  assay = "Xenium"
+)
+
+srat[["fov"]] <- coords
+rm(segmentation, centroids, coords)
+
+# Crop object and make the plot
+
+#### Below are the per-sample cropping coordinates
+
+# ATRT-340
+cropped.coords <- Crop(srat[["fov"]], x = c(17000, 17500), y = c(2600, 3100), coords = "plot")
+
+# ATRT-173
+cropped.coords <- Crop(srat[["fov"]], y = c(2800, 3300), x = c(14700, 15200), coords = "plot")
+
+# ATRT-256
+cropped.coords <- Crop(srat[["fov"]], y = c(9000, 9500), x = c(10000, 10500), coords = "plot")
+
+# ATRT-243
+cropped.coords <- Crop(srat[["fov"]], y = c(5000, 5500), x = c(9000, 9500), coords = "plot")
+
+
+srat[["crop"]] <- cropped.coords
+srat$group[is.na(srat$group)] <- "Unannotated"
+Idents(srat) <- "group"
+
+pal <- c("Astrocytes" = "grey75",
+         "Cilia-like" = "#be0e0e",
+         "CP-like" = "#be660e",
+         "Endothelial" = "grey75",
+         "IPC-like" = "#be920e",
+         "Mesenchymal-like" = "#0ebe66",
+         "Microglia_Immune" = "grey75",
+         "Mural" = "grey75",
+         "Neurons" = "grey75",
+         "NPC-like" = "#0466c8",
+         "OPC" = "grey75",
+         "OPC-like" = "#0435c8",
+         "RG-like" = "#0497c8",
+         "Necrotic" = "grey75",
+         "Unannotated" = "grey75")
+
+
+ImageDimPlot(srat, fov = "crop", boundaries = "segmentation", dark.background = F, flip_xy = T, group.by = "group", cols = cpal, axes = T, border.size = 0.025) + NoLegend()
+
+# 3F - Bottom Right 
+library(Seurat)
+library(tidyverse)
+
+srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
+
+# Create cell segmentation object
+cell_boundaries_df <- as.data.frame(data.table::fread("cell_boundaries.csv.gz")) # Xenium on-board analysis output
+cell_boundaries_df <- cell_boundaries_df[cell_boundaries_df$cell_id %in% colnames(srat),1:3]
+names(cell_boundaries_df) <- c("cell", "x", "y")
+segmentation <- CreateSegmentation(cell_boundaries_df)
+rm(cell_boundaries_df)
+
+# Create centroids object
+cell_info <- as.data.frame(data.table::fread( "cells.csv.gz"))
+cell_centroid_df <- data.frame(
+  x = cell_info$x_centroid,
+  y = cell_info$y_centroid,
+  cell = cell_info$cell_id,
+  stringsAsFactors = FALSE
+)
+rm(cell_info)
+cell_centroid_df <- cell_centroid_df[cell_centroid_df$cell %in% colnames(srat),]
+centroids <- CreateCentroids(cell_centroid_df)
+
+# Add FOV to Seurat object
+coords <- CreateFOV(
+  coords = list( centroids = centroids, segmentation = segmentation),
+  type = c("segmentation", "centroids"),
+  assay = "Xenium"
+)
+
+srat[["fov"]] <- coords
+rm(segmentation, centroids, coords)
+
+# Crop object and make the plot
+
+#### Below are the per-sample cropping coordinates
+
+# ATRT-340
+cropped.coords <- Crop(srat[["fov"]], x = c(17000, 17500), y = c(2600, 3100), coords = "plot")
+
+# ATRT-173
+cropped.coords <- Crop(srat[["fov"]], y = c(2800, 3300), x = c(14700, 15200), coords = "plot")
+
+# ATRT-256
+cropped.coords <- Crop(srat[["fov"]], y = c(9000, 9500), x = c(10000, 10500), coords = "plot")
+
+# ATRT-243
+cropped.coords <- Crop(srat[["fov"]], y = c(5000, 5500), x = c(9000, 9500), coords = "plot")
+
+
+srat[["crop"]] <- cropped.coords
+
+ImageFeaturePlot(srat, features = "MKI67",fov = "crop", boundaries = "segmentation", 
+                 border.size = NA, dark.background = F, border.color = NA) + NoLegend() + ggtitle("") + scale_fill_viridis_c(option = "D")
+
+# 3F - Left
+library(tidyverse)
+
+
+# Read enrichment files generated by NeighborhoodAnalysis.py and combine
+files <- list.files(path = "python", pattern = "SpatInt.csv", full.names = T)
+ls <- lapply(files, read.csv)
+names(ls) <- gsub("python/","", gsub("-SpatInt.csv", "", files))
+for (f in seq_along(ls)){
+  ls[[f]]$line <- names(ls)[f] 
+}
+
+df <- purrr::reduce(ls, rbind.data.frame)
+df <- df[,-1]
+
+
+# Read interaction files generated by NeighborhoodAnalysis.py, format and combine
+ints.files <- list.files(path = "python", pattern = "_interactions.csv", full.names = T)
+ints <- lapply(ints.files, read.csv)
+for(d in seq_along(ints)) {
+  ints[[d]] <- ints[[d]][,-1]
+  
+  colnames(ints[[d]]) <- rownames(ints[[d]]) <- c("Astrocytes",
+                                      "CP-like",
+                                      "Cilia-like",
+                                      "Endothelial",
+                                      "IPC-like",
+                                      "Mesenchymal-like",
+                                      "Microglia/immune",
+                                      "VLMC",
+                                      "NPC-like",
+                                      "Neurons",
+                                      "OPC",
+                                      "OPC-like",
+                                      "RG-like")
+  
+  ints[[d]] <- ints[[d]][c(2,3,5,6,9,12,13),c(2,3,5,6,9,12,13)]
+  
+  ints[[d]] <- ints[[d]] %>% rownames_to_column("neighbour_phenotype") %>% pivot_longer(2:8, names_to = "phenotype", values_to = "n")
+  
+  ints[[d]] <- ints[[d]] %>% group_by(phenotype) %>% mutate(freq = n / sum(n))
+}
+
+names(ints) <- gsub("ATRT","ATRT-",gsub("python/","",gsub("_interactions.csv","",ints.files)))
+
+for(d in seq_along(ints)) {
+  ints[[d]][,"line"] <- names(ints)[d]
+}
+
+
+
+
+
+# Compute ATRT-TYR group
+ints.sub <- purrr::reduce(ints[c(3,8)], rbind.data.frame)
+ints.sub <- ints.sub %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean_interactions = mean(freq))
+
+
+mn <- df %>% filter(line %in% c("ATRT-340","ATRT-15-RV4")) %>% filter(pvalue_imageid < 0.01) %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean = mean(imageid))
+
+data <- merge(mn, ints.sub, by = c("phenotype","neighbour_phenotype"))
+data <- data  %>% filter(phenotype %in% c("IPC-like","CP-like","Cilia-like"))
+data$subgroup <- "TYR"
+data_comb <- data
+
+
+
+
+# Compute ATRT-MYC group
+ints.sub <- purrr::reduce(ints[c(6,5)], rbind.data.frame)
+ints.sub <- ints.sub %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean_interactions = mean(freq))
+
+
+mn <- df %>% filter(line %in% c("ATRT-243","ATRT-207")) %>% filter(pvalue_imageid < 0.01) %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean = mean(imageid))
+data <- merge(mn, ints.sub, by = c("phenotype","neighbour_phenotype"))
+
+data <- data  %>% filter(phenotype %in% c("IPC-like","Mesenchymal-like"))
+data$subgroup <- "MYC"
+
+data_comb <- rbind.data.frame(data,data_comb)
+
+
+
+# Compute ATRT-SHH_OPC group
+ints.sub <- ints[["ATRT-256"]] %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean_interactions = mean(freq))
+mn <- df %>% filter(line == "ATRT-256")
+
+data <- merge(mn, ints.sub, by = c("phenotype","neighbour_phenotype"))
+colnames(data)[3] <- "mean"
+data <- data  %>% filter(phenotype %in% c("IPC-like","OPC-like","RG-like"))
+data$subgroup <- "SHH_OPC"
+data_comb <- rbind.data.frame(data[,c(1,2,3,6,7)],data_comb)
+
+
+
+
+
+# Compute ATRT-SHH_NPC group
+ints.sub <- purrr::reduce(ints[c(1,4)], rbind.data.frame)
+ints.sub <- ints.sub %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean_interactions = mean(freq))
+
+
+mn <- df %>% filter(line %in% c("ATRT-05","ATRT-173")) %>% filter(pvalue_imageid < 0.01) %>% group_by(phenotype, neighbour_phenotype) %>% summarize(mean = mean(imageid))
+
+data <- merge(mn, ints.sub, by = c("phenotype","neighbour_phenotype"))
+
+data <- data  %>% filter(phenotype %in% c("IPC-like","RG-like","NPC-like"))
+data$subgroup <- "SHH_NPC"
+
+data_comb <- rbind.data.frame(data,data_comb)
+
+data_comb$subgroup <- factor(data_comb$subgroup, levels = c("SHH_NPC",
+                                                            "SHH_OPC",
+                                                            "TYR",
+                                                            "MYC"))
+
+data_comb$neighbour_phenotype <- factor(data_comb$neighbour_phenotype,
+                                        levels = rev(c("NPC-like",
+                                                   "RG-like",
+                                                   "OPC-like",
+                                                   "IPC-like",
+                                                   "CP-like",
+                                                   "Cilia-like",
+                                                   "Mesenchymal-like")))
+
+data_comb$phenotype <- factor(data_comb$phenotype,
+                                        levels = (c("NPC-like",
+                                                    "OPC-like",
+                                                       "RG-like",
+                                                       
+                                                    "CP-like",
+                                                    "Cilia-like",
+                                                    "Mesenchymal-like",
+                                                       "IPC-like"
+                                                       
+                                                       )))
+
+
+ggplot(data_comb %>% filter(phenotype == "IPC-like" & neighbour_phenotype == "IPC-like"), aes( x = phenotype, y = neighbour_phenotype, fill = mean, size = mean_interactions)) +
+  geom_point(shape=21, stroke = 0.25) +
+  scale_fill_distiller(palette = "RdBu", limits=c(-1,1)) +
+  scale_size_continuous(range = c(1,3))+
+  facet_wrap(vars(subgroup), scales = "free_y", ncol = 1) +
+  ylab("Neighbor cell type") +
+  xlab("Target cell type") +
+  theme_classic() +
+  labs(size = "Mean percentage in neighborhood",
+       fill = "Mean enrichment") +
+  theme(axis.title = element_text(size = 6, color = "black"),
+        axis.text = element_text(size = 6, color = "black"),
+        strip.background = element_blank(),
+        strip.text = element_blank(),
+        axis.ticks = element_line(size = 0.25), 
+        axis.line = element_line(size = 0.25),
+        legend.position = "none",
+        legend.text = element_text(size=6, color = "black"),
+        legend.title = element_text(size=6, color = "black"),
+        legend.key.size = unit(0.75, 'lines'),
+        panel.spacing.y = unit(5, "mm")) +
+  guides(size=guide_legend(title.position = "top",
+                           override.aes = list(fill = "black")),
+         fill=guide_colourbar(title.position = "top", 
+                              barheight = 3.5, barwidth = 0.5,
+                              frame.colour = "black", ticks.colour = "black", label = T,
+                              frame.linewidth = 0.1))
+
+
+# 3F - Top Right 
+library(Seurat)
+library(tidyverse)
+
+srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
+
+# Create cell segmentation object
+cell_boundaries_df <- as.data.frame(data.table::fread("cell_boundaries.csv.gz")) # Xenium on-board analysis output
+cell_boundaries_df <- cell_boundaries_df[cell_boundaries_df$cell_id %in% colnames(srat),1:3]
+names(cell_boundaries_df) <- c("cell", "x", "y")
+segmentation <- CreateSegmentation(cell_boundaries_df)
+rm(cell_boundaries_df)
+
+# Create centroids object
+cell_info <- as.data.frame(data.table::fread( "cells.csv.gz"))
+cell_centroid_df <- data.frame(
+  x = cell_info$x_centroid,
+  y = cell_info$y_centroid,
+  cell = cell_info$cell_id,
+  stringsAsFactors = FALSE
+)
+rm(cell_info)
+cell_centroid_df <- cell_centroid_df[cell_centroid_df$cell %in% colnames(srat),]
+centroids <- CreateCentroids(cell_centroid_df)
+
+# Add FOV to Seurat object
+coords <- CreateFOV(
+  coords = list( centroids = centroids, segmentation = segmentation),
+  type = c("segmentation", "centroids"),
+  assay = "Xenium"
+)
+
+srat[["fov"]] <- coords
+rm(segmentation, centroids, coords)
+
+# Crop object and make the plot
+
+#### Below are the per-sample cropping coordinates
+
+# ATRT-340
+cropped.coords <- Crop(srat[["fov"]], x = c(17000, 17500), y = c(2600, 3100), coords = "plot")
+
+# ATRT-173
+cropped.coords <- Crop(srat[["fov"]], y = c(2800, 3300), x = c(14700, 15200), coords = "plot")
+
+# ATRT-256
+cropped.coords <- Crop(srat[["fov"]], y = c(9000, 9500), x = c(10000, 10500), coords = "plot")
+
+# ATRT-243
+cropped.coords <- Crop(srat[["fov"]], y = c(5000, 5500), x = c(9000, 9500), coords = "plot")
+
+
+srat[["crop"]] <- cropped.coords
+srat$group[is.na(srat$group)] <- "Unannotated"
+Idents(srat) <- "group"
+
+cpal <- c("Astrocytes" = "grey80",
+          "Cilia-like" = "grey80",
+          "CP-like" = "grey80",
+          "Endothelial" = "grey80",
+          "IPC-like" = "#be920e",
+          "Mesenchymal-like" = "grey80",
+          "Microglia_Immune" = "grey80",
+          "Mural" = "grey80",
+          "Neurons" = "grey80",
+          "NPC-like" = "grey80",
+          "OPC" = "grey80",
+          "OPC-like" = "grey80",
+          "RG-like" = "grey80",
+          "Necrotic" = "grey80",
+          "Unannotated" = "grey80")
+
+
+ImageDimPlot(srat, fov = "crop", boundaries = "segmentation", dark.background = F, flip_xy = T, group.by = "group", cols = cpal, axes = T, border.size = 0.025) + NoLegend()
+
+
+```

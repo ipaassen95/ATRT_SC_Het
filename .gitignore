@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+ATRT_SC_Het.Rproj
+render*
+_bookdown_files
+omnipathr-log/*
+/.quarto/
+index_files/*
+docs/*

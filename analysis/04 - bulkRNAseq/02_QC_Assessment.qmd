@@ -1,0 +1,94 @@
+# Quality Control {.unnumbered}
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+
+```{r}
+#| eval: false
+
+
+library(magrittr)
+
+dds.path <- "path_to_dds_file"
+dds <- readRDS(dds.path)
+
+# Transform data.
+vsd <- DESeq2::vst(dds)
+
+# PCA plot.
+p1 <- DESeq2::plotPCA(vsd, intgroup = c("treatment")) + 
+                      ggplot2::theme_bw(base_size = 18) + 
+                      ggplot2::coord_cartesian() + 
+                      ggplot2::scale_color_manual(values = stats::setNames(SCpubr::do_ColorPalette("steelblue", square = TRUE), levels(dds$treatment)))
+
+p1$labels$colour <- "Treatment"
+p1$layers[[1]]$aes_params$size <- 8
+p1$layers[[1]]$aes_params$alpha <- 0.75
+  
+p2 <- DESeq2::plotPCA(vsd, intgroup = c("model")) + 
+      ggplot2::theme_bw(base_size = 18) + 
+      ggplot2::coord_cartesian() + 
+      ggplot2::scale_color_manual(values = c("ATRT04" = "#243a76", "ATRT08" = "#096837"))
+p2$labels$colour <- "Model"
+p2$layers[[1]]$aes_params$size <- 8
+p2$layers[[1]]$aes_params$alpha <- 0.75
+
+p3 <- DESeq2::plotPCA(vsd, intgroup = c("replicate")) + 
+      ggplot2::theme_bw(base_size = 18) + 
+      ggplot2::coord_cartesian() + 
+      ggplot2::scale_color_manual(values = stats::setNames(SCpubr::do_ColorPalette("steelblue", opposite = TRUE), levels(dds$replicate)))
+p3$labels$colour <- "Replicate"
+p3$layers[[1]]$aes_params$size <- 8
+p3$layers[[1]]$aes_params$alpha <- 0.5
+
+p.pca <- p1 | p2 | p3
+
+
+# Sample to sample distance plot.
+dist.matrix <- as.matrix(stats::dist(t(SummarizedExperiment::assay(vsd))))
+
+p.dist <- pheatmap::pheatmap(dist.matrix,
+                             cutree_rows = 2,
+                             cutree_cols = 2,
+                             col = colorRampPalette(rev(RColorBrewer::brewer.pal(9, "Blues")))(255),
+                             border_color = "white",
+                             treeheight_row = 0,
+                             treeheight_col = 0, 
+                             ) %>% 
+          ggplotify::as.ggplot() + 
+          ggplot2::coord_fixed()
+
+# Sample correlation plot.
+p.cor <- pheatmap::pheatmap(stats::cor(SummarizedExperiment::assay(vsd)),
+                            border_color = "white",
+                            col = colorRampPalette(rev(RColorBrewer::brewer.pal(11, "RdBu")))(255),
+                            cutree_rows = 2,
+                            cutree_cols = 2,
+                            treeheight_row = 0,
+                            treeheight_col = 0) %>% 
+         ggplotify::as.ggplot() + 
+         ggplot2::coord_fixed()
+
+# MeanSD plot
+p.meansd <- vsn::meanSdPlot(SummarizedExperiment::assay(vsd))$gg + 
+            ggplot2::scale_fill_gradientn(colors = RColorBrewer::brewer.pal("YlGnBu", n = 9)) +
+            ggplot2::theme_bw(base_size = 18) 
+p.meansd$layers[[1]]$aes_params$colour <- "black"
+p.meansd$layers[[2]]$aes_params$linewidth <- 2
+
+layout <- "AAA
+           BCD"
+p <- patchwork::wrap_plots(A = p.pca,
+                           B = p.dist,
+                           C = p.cor,
+                           D = p.meansd,
+                           design = layout)
+
+```
+

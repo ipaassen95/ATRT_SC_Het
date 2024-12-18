@@ -1,0 +1,255 @@
+# Figure 1 {.unnumbered}
+
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+  
+```{r}
+#| eval: false
+
+# Overarching Seurat object.
+path.to.sample <- "path_to_snRNAseq_sample"
+sample <- readRDS(path.to.sample)
+
+# Color palettes.
+subtype.colors <- c("ATRT-TYR"    = "#87191c",
+                    "ATRT-SHH"    = "#243a76",
+                    "ATRT-MYC"    = "#096837")
+
+orig.colors <- c("ATRT-TYR-1" = "#feac81",
+                 "ATRT-TYR-2" = "#f78462",
+                 "ATRT-TYR-3" = "#b9563f",
+                 "ATRT-TYR-4" = "#f05b43",
+                 "ATRT-TYR-5" = "#c62320",
+                 "ATRT-TYR-6" = "#831818",
+                 "ATRT-SHH-1" = "#abc9c8",
+                 "ATRT-SHH-2" = "#72aeb6",
+                 "ATRT-SHH-3" = "#4692b0",
+                 "ATRT-SHH-4" = "#2f70a1",
+                 "ATRT-SHH-5" = "#bad6f9",
+                 "ATRT-SHH-6" = "#7db0ea",
+                 "ATRT-SHH-7" = "#447fdd",
+                 "ATRT-SHH-8" = "#134b73",
+                 "ATRT-SHH-9" = "#0a3351",
+                 "ATRT-MYC-1" = "#c2d6a4",
+                 "ATRT-MYC-2" = "#9cc184",
+                 "ATRT-MYC-3" = "#3c7c3d",
+                 "ATRT-MYC-4" = "#1f5b25")
+
+technology.colors <- c("10X v3 5'"    = "#005f73",
+                       "10X multiome" = "#ee9b00")
+
+tissue.colors <- c("Snap frozen" = "#b15102",
+                   "Viably frozen" = "#0262B1")
+
+colors.use <- c("Astrocytes"               = "#BA531CFF",
+                "Neurons"                  = "#787F00FF",
+                "OPC"                      = "#009257FF",
+                "Microglia"                = "#0092AAFF", 
+                "Endothelial"              = "#5E4CCDFF",
+                "Pericytes"                = "#a32978")
+
+colors.use.tumor <- c("IPC-like"                 = "#be920e",            
+                      "CP-like"                  = "#be660e",
+                      "Cilia-like"               = "#be0e0e",
+                      "Mesenchymal-like"         = "#0ebe66",
+                      "RG-like"                  = "#0497c8",
+                      "NPC-like"                 = "#0466c8",
+                      "OPC-like"                 = "#0435c8",
+                      "Hypoxic"                  = "#92be0e",
+                      "Immune-like"              = "#920ebe")
+
+# Figure 1B ---------
+
+# Read in metadata.
+metadata <- as.data.frame(readxl::read_excel("/omics/odcf/analysis/hipo/hipo_049/ATRT/ATRT_Publication_GitHub/datasets/ATRT_metadata.xlsx"))
+metadata$ATRT_subtype[!(metadata$ATRT_subtype %in% c("ATRT-TYR", "ATRT-MYC"))] <- "ATRT-SHH"
+
+
+
+
+
+
+# Process metadata.
+metadata <- metadata %>% 
+            tibble::as_tibble() %>% 
+            dplyr::mutate("ATRT subgroup" = factor(.data$ATRT_subtype, levels = c("ATRT-TYR", "ATRT-SHH", "ATRT-SHH-1A", "ATRT-SHH-1B", "ATRT-SHH-2", "ATRT-MYC")),
+                          "Tissue Type" = factor(.data$tissue_type, levels = c("Snap frozen", "Viably frozen")),
+                          "Technology" = factor(.data$`Sequencing technology`, levels = c("10X v3 5'", "10X multiome"))) %>% 
+            dplyr::select(dplyr::all_of(c("ATRT subgroup", "Tissue Type", "Technology", "id"))) %>% 
+            as.data.frame() %>% 
+            tibble::column_to_rownames("id")
+
+
+# Generate final list of colors
+colors.use <- list("ATRT subgroup" = subtype.colors,
+                   "ID" = orig.colors,
+                   "Technology" = technology.colors,
+                   "Tissue Type" = tissue.colors)
+
+# Reorder rows and columns.
+metadata <- metadata[rev(1:nrow(metadata)), rev(colnames(metadata))]
+
+# Plot.
+p <- SCpubr::do_MetadataPlot(from_df = TRUE,
+                            df = metadata,
+                            legend.position = "bottom",
+                            legend.ncol = 2,
+                            colors.use = colors.use,
+                            axis.text.face = "plain", 
+                            font.size = 16, 
+                            legend.font.size = 14, 
+                            legend.symbol.size = 4,
+                            flip = FALSE,
+                            cluster = FALSE)
+# Make names go on top.
+p[[1]] <- p[[1]] +
+          ggplot2::theme(axis.text.x.top = ggplot2::element_text(color = "black", angle = 45, hjust = 0, vjust = 0.1),
+                         axis.ticks.x.top = ggplot2::element_line(color = "black")) +
+          ggplot2::guides("fill" = ggplot2::guide_legend(ncol = 1, title.position = "top", title.hjust = 0.5))
+
+# Change legend style of second and third plots to only one column.
+p[[2]] <- p[[2]] +
+          ggplot2::guides("fill" = ggplot2::guide_legend(ncol = 1, title.position = "top", title.hjust = 0.5))
+
+p[[3]] <- p[[3]] +
+          ggplot2::guides("fill" = ggplot2::guide_legend(ncol = 1, title.position = "top", title.hjust = 0.5))
+
+
+# Make names disappear on bottom.
+p <- p + 
+     ggplot2::theme(axis.text.x.bottom = ggplot2::element_blank(),
+                         axis.ticks.x.bottom = ggplot2::element_blank())
+
+
+
+# Figure 1C ---------
+p <- SCpubr::do_DimPlot(sample = sample,
+                        group.by = "ID",
+                        reduction = "umap_unintegrated",
+                        font.size = 16,
+                        label.size = 4,
+                        raster = TRUE,
+                        raster.dpi = 2048,
+                        pt.size = 4,
+                        label = TRUE,
+                        repel = TRUE,
+                        colors.use = orig.colors,
+                        legend.icon.size = 8,
+                        legend.ncol = 4,
+                        legend.position = "none")
+
+
+
+# Figure 1D ---------
+p <- SCpubr::do_DimPlot(sample = sample,
+                        group.by = "Final_Annotation",
+                        reduction = "umap_unintegrated",
+                        font.size = 16,
+                        raster = TRUE,
+                        raster.dpi = 2048,
+                        pt.size = 8,
+                        colors.use = colors.use,
+                        legend.icon.size = 8,
+                        legend.ncol = 2,
+                        na.value = "grey90",
+                        legend.position = "bottom",
+                        idents.keep = c("Microglia", "Astrocytes", "Neurons", "OPC", "Endothelial", "Pericytes"))
+
+
+# Figure 1E ---------
+p <- SCpubr::do_DimPlot(sample = sample,
+                        group.by = "subtype",
+                        font.size = 16,
+                        raster = TRUE,
+                        raster.dpi = 2048,
+                        pt.size = 8,
+                        colors.use = subtype.colors,
+                        legend.icon.size = 8,
+                        legend.ncol = 3,
+                        legend.position = "bottom")
+
+# Figure 1F ---------
+p <- SCpubr::do_DimPlot(sample = sample,
+                        group.by = "Final_Annotation",
+                        font.size = 16,
+                        raster = TRUE,
+                        raster.dpi = 2048,
+                        pt.size = 8,
+                        colors.use = colors.use,
+                        legend.icon.size = 8,
+                        legend.ncol = 3,
+                        na.value = "grey90",
+                        legend.position = "bottom",
+                        idents.keep = c("Microglia", "Astrocytes", "Neurons", "OPC", "Endothelial", "Pericytes"))
+
+# Figure 1G ---------
+supervised.annotation.markers.path <- ""
+markers <- readRDS(supervised.annotation.markers.path)
+
+# Compute enrichment wiht SCpubr.
+out <- SCpubr::do_EnrichmentHeatmap(sample, 
+							 input_gene_list = markers, 
+							 flavor = "UCell", 
+							 return_object = TRUE,
+							 scale_scores = FALSE)
+
+# Retrieve the Seurat object with enrichment scores.
+sample <- out$Object
+sample <- Seurat::ScaleData(sample)
+
+
+nmf.based <- c("Cycle", "Stress", "Interferon", "Hypoxia", "Oxphos", "Metal", "Mesenchymal", "pEMT", "Alveolar", "Basal", "Squamous", "Glandular", "Ciliated", "AC", "OPC", "NPC")
+atlas.based <- c("Neuron", "Neuroblast", "Neuronal.IPC", "Radial.glia", "Glioblast", "Oligo", "Fibroblast", "Neural.crest", "Placodes", "Immune", "Vascular", "Erythrocyte")
+panglaodb.based <- c("CP", "PSC", "ESC")
+
+order.use <- c("CP-like", "IPC-like", "Cilia-like", "RG-like", "NPC-like", "OPC-like", "Immune-like", "Hypoxic", "Mesenchymal-like")
+
+sets.use <- c("OPC", "Hypoxia", "NPC", "Ciliated", "CP", "Mesenchymal", "Cycle",
+              "Radial.glia", "Oligo", "Neuron", "Neuroblast", "Neuronal.IPC", "Immune")
+
+idents.use <- c("IPC-like", "CP-like", "Cilia-like", 
+                "Mesenchymal-like", "RG-like", "NPC-like", 
+                "OPC-like", "Immune-like", "Hypoxic")
+
+# Compute Enrichment heatmap.
+p <- SCpubr::do_ExpressionHeatmap(sample[sets.use, sample$Annotation %in% idents.use],
+                                  assay = "Enrichment",
+                                  features = rownames(sample),
+                                  group.by = "Annotation",
+                                  legend.title = "UCell score",
+                                  font.size = 16,
+                                  min.cutoff = 0.05,
+                                  max.cutoff = 0.2,
+                                  cluster = TRUE,
+                                  groups.order = list("Annotation" = rev(order.use)),
+                                  features.order = sets.use,
+                                  legend.position = "bottom",
+                                  flip = TRUE) + 
+      ggplot2::ylab("NMF | Atlas") +
+      ggplot2::xlab(NULL) + 
+      ggplot2::theme(plot.margin = ggplot2::margin(t = 0, b = 0, r = 0, l = 0))
+
+# Figure 1H ---------
+p <- SCpubr::do_DimPlot(sample = sample,
+                        group.by = "Final_Annotation",
+                        font.size = 16,
+                        raster = TRUE,
+                        raster.dpi = 2048,
+                        pt.size = 8,
+                        colors.use = colors.use,
+                        legend.icon.size = 8,
+                        legend.ncol = 3,
+                        na.value = "grey90",
+                        legend.position = "bottom",
+                        idents.keep = c("IPC-like", "CP-like", "Cilia-like", 
+                                        "Mesenchymal-like", "RG-like", "NPC-like", 
+                                        "OPC-like", "Immune-like", "Hypoxic"))
+
+```

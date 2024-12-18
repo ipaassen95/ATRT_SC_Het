@@ -1,0 +1,77 @@
+# Normalization and Integration {.unnumbered}
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+```
+
+```{r}
+#| eval: false
+
+# Enrique Blanco Carmona
+# e.blancocarmona@kitz-heidelberg.de
+# Postdoctoral researcher.
+# Division of Pediatric Neurooncology (B062)
+# DKFZ-KiTZ | Germany
+
+# Global variables
+n_pcs <- 25
+regress_out_vars <- c("nCount_RNA", "nFeature_RNA", "percent.mt")
+normalization_batch <- "orig.ident"
+integration_batch <- "technology"
+
+
+# Set options so that all new assays are also Seurat v5.
+options(Seurat.object.assay.version = "v5")
+
+# Change the assay to Seurat V5.
+sample[["RNA"]] <- as(object = sample[["RNA"]], Class = "Assay5")
+
+sample[["RNA"]] <- split(x = sample[["RNA"]], 
+                         f = sample@meta.data[, normalization_batch])
+
+# Perform normalization.
+sample <- Seurat::NormalizeData(sample)
+sample <- Seurat::FindVariableFeatures(sample)
+sample <- Seurat::ScaleData(sample, vars.to.regress = regress_out_vars)
+
+# Perform PCA.
+sample <- Seurat::RunPCA(sample)
+
+# Perform Clustering.
+sample <- Seurat::FindNeighbors(sample, 
+                                dims = 1:n_pcs, 
+                                reduction = "pca")
+
+sample <- Seurat::FindClusters(sample,  
+                               cluster.name = "unintegrated_clusters")
+
+# Perform UMAP.
+sample <- Seurat::RunUMAP(sample, 
+                          dims = 1:n_pcs, 
+                          reduction = "pca", 
+                          reduction.name = "umap_unintegrated")
+
+# Fix dim names.
+sample@reductions$umap_unintegrated@key <- "umap_unintegrated_"
+colnames(sample@reductions$umap_unintegrated@cell.embeddings) <- c("umap_unintegrated_1", "umap_unintegrated_2")
+
+# Join layers.
+sample <- SeuratObject::JoinLayers(sample)
+sample@assays[["RNA"]]@layers <- sample@assays[["RNA"]]@layers[c("counts", "data", "scale.data")]
+
+# Integrate with harmony.
+sample <- harmony::RunHarmony(sample,
+                              assay = "RNA",
+                              group.by.vars = c(normalization_batch, integration_batch),
+                              theta = c(1, 2))
+
+# Reclustering and UMAP.
+sample <- Seurat::FindNeighbors(sample, reduction = "harmony", dims = 1:30)
+sample <- Seurat::FindClusters(sample, cluster.name = "harmony_clusters")
+sample <- Seurat::RunUMAP(sample, reduction = "harmony", dims = 1:30, reduction.name = "umap.harmony", reduction.key = "UMAPHARMONY_")
+```
+
+

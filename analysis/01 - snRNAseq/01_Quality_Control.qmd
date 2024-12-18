@@ -1,0 +1,54 @@
+# Quality Control {.unnumbered}
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+```
+
+```{r}
+#| eval: false
+
+# Enrique Blanco Carmona
+# e.blancocarmona@kitz-heidelberg.de
+# PhD Student – Clinical Bioinformatics
+# Division of Pediatric Neurooncology (B062)
+# DKFZ-KiTZ | Germany
+
+
+# QC -----
+
+# RDS objects before QC are read into memory.
+
+# Define technology.
+sample.10v3.snRNAseq$technology <- "10X | v3 | snRNAseq"
+sample.multiome$technology <- "10X | multiome | snRNAseq"
+
+# Compute percentage of ribosomal RNA.
+sample.multiome[["percent.rb"]] <- Seurat::PercentageFeatureSet(sample.multiome, pattern = "^RB-")
+sample.10v3.snRNAseq[["percent.rb"]] <- Seurat::PercentageFeatureSet(sample.10v3.snRNAseq, pattern = "^RB-")
+
+# Merge datasets.
+sample <- merge(x = sample.10v3.snRNAseq,
+                y = sample.multiome)
+
+# First QC round.
+umis <- sample$nCount_RNA >= 1000
+genes <- sample$nFeature_RNA >= 500
+mito <- c(sample[, sample$technology == "10X | v3 | scRNAseq"]$percent.mt <= 20, sample[, sample$technology != "10X | v3 | scRNAseq"]$percent.mt <= 5) 
+
+mask <- umis & genes & mito
+
+sample <- sample[, mask]
+
+# Second QC round.
+umis <- sample$nCount_RNA <= (mean(sample$nCount_RNA) + 3 * stats::sd(sample$nCount_RNA))
+genes <- sample$nFeature_RNA <= (mean(sample$nFeature_RNA) + 3 * stats::sd(sample$nFeature_RNA))
+
+
+mask <- umis & genes
+sample <- sample[, mask]
+```
+
+
