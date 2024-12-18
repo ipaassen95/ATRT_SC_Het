@@ -1,0 +1,104 @@
+project:
+  type: book
+  output-dir: docs
+
+book:
+  title: "A cycling, progenitor-like cell population at the root of atypical teratoid rhabdoid tumor subtype differentiation trajectories"
+  reader-mode: false
+  image: ""
+  open-graph: true
+  license: "CC BY-NC-SA 4.0"
+
+  #navbar:
+  twitter-card: true
+  #favicon: /images/SCpubr_logo_favicon.png
+  sidebar:
+    title: "A cycling, progenitor-like cell population at the root of atypical teratoid rhabdoid tumor subtype differentiation trajectories"
+    foreground: primary
+    collapse-level: 1
+    border: true
+    style: docked
+  page-footer:
+    left: |
+      Written by **Enrique Blanco Carmona**
+    right: |
+      Figures generated with **<a href="https://github.com/enblacar/SCpubr">SCpubr</a>** | Book built with **<a href="https://quarto.org/">Quarto</a>**
+  site-url: https://enblacar.github.io/SCpubr-book/
+  repo-url: https://github.com/enblacar/SCpubr/
+  repo-branch: main
+  search:
+    location: "navbar"
+    type: "textbox"
+  chapters:
+    - part: "Abstract"
+      chapters:
+      - index.qmd
+    
+    - part: "Analysis | snRNAseq"
+      chapters:
+      - ./analysis/01 - snRNAseq/01_Quality_Control.qmd
+      - ./analysis/01 - snRNAseq/02_Doublet_Removal.qmd
+      - ./analysis/01 - snRNAseq/03_Normalization_and_Integration.qmd
+      - ./analysis/01 - snRNAseq/04_CNV_analysis.qmd
+      - ./analysis/01 - snRNAseq/05_Supervised_Annotation.qmd
+
+    - part: "Analysis | snATACseq"
+      chapters:
+      - ./analysis/02 - snATACseq/01_Analysis.qmd
+      
+    - part: "Analysis | Xenium"
+      chapters:
+      - ./analysis/03 - Xenium/01_Analysis.qmd
+
+
+    - part: "Analysis | bulkRNAseq"
+      chapters:
+      - ./analysis/04 - bulkRNAseq/01_GenerateDESeq2Dataset.qmd
+      - ./analysis/04 - bulkRNAseq/02_QC_Assessment.qmd
+      - ./analysis/04 - bulkRNAseq/03_DE_Analysis.qmd
+    
+    - part: "Figures"
+      chapters:
+      - ./visualization/Figure_1.qmd
+      - ./visualization/Figure_2.qmd
+      - ./visualization/Figure_3.qmd
+      - ./visualization/Figure_4.qmd
+      - ./visualization/Figure_S1.qmd
+      - ./visualization/Figure_S1.qmd
+      - ./visualization/Figure_S2.qmd
+      - ./visualization/Figure_S3.qmd
+      - ./visualization/Figure_S4.qmd
+      - ./visualization/Figure_S5.qmd
+      - ./visualization/Figure_S6.qmd
+      - ./visualization/Figure_S7.qmd
+      - ./visualization/Figure_S8.qmd
+      - ./visualization/Figure_S9.qmd
+
+
+format:
+  html:
+    fig-dpi: 300
+    number-sections: true
+    include-in-header:
+      text: <script type="text/javascript" src="./intense.js"></script>
+    include-after-body:
+      - ./plot_fold.html
+      - ./img_zoom.html
+    code-fold: true
+    theme:
+      - flatly
+      - ATRT.scss
+
+    code-link: true
+    code-block-border-left: false
+    callout-appearance: default
+    smooth-scroll: true
+    grid:
+      sidebar-width: 400px
+      body-width: 1200px
+      margin-width: 300px
+      gutter-width: 1.5rem
+
+
+editor: source
+

@@ -1,0 +1,17 @@
+# Figure S6 {.unnumbered}
+
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+  
+```{r}
+#| eval: false
+# Code for this figure included in Figure 2.
+
+```

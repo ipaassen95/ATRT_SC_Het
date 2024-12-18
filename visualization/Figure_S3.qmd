@@ -1,0 +1,208 @@
+# Figure S3 {.unnumbered}
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+
+```{r}
+#| eval: false
+path.to.sample <- "path_to_snRNAseq_sample"
+sample <- readRDS(path.to.sample)
+
+subtype.colors <- c("ATRT-TYR"    = "#87191c",
+                    "ATRT-SHH"    = "#243a76",
+                    "ATRT-MYC"    = "#096837")
+
+colors.use.reduced <- c("Tumor"              = "#C0C0C0",
+                        "TME"                = "#70798c",
+                        "IPC-like"                 = "#be920e",
+                        "CP-like"                  = "#be660e",
+                        "Cilia-like"               = "#be0e0e",
+                        "Mesenchymal-like"         = "#0ebe66",
+                        "RG-like"                  = "#0497c8",
+                        "NPC-like"                 = "#0466c8",
+                        "OPC-like"                 = "#0435c8",
+                        "Hypoxic"                  = "#92be0e",
+                        "Immune-like"              = "#920ebe")
+
+markers.path <- "path_to_supervised_annotation_set"
+markers <- readRDS(markers.path)
+
+markers.stem <- "path_to_stemness_markers"
+stem.markers <- readRDS(markers.stem)
+
+markers$PSC <- stem.markers$PSC
+markers <- markers[c("Neuronal_IPC", "Cycle", "PSC")]
+names(markers) <- c("Neuronal.IPC", "Cycle", "PSC")
+
+out <- SCpubr::do_EnrichmentHeatmap(sample = sample, input_gene_list = markers, flavor = "UCell", return_object = TRUE)
+sample <- out$Object
+sample <- Seurat::ScaleData(sample, features = rownames(sample))
+
+# Figure S3A ---------
+p <- SCpubr::do_DimPlot(sample = sample,
+                         group.by = "Annotation",
+                         idents.keep = "IPC-like",
+                         font.size = 16,
+                         raster = TRUE,
+                         raster.dpi = 2048,
+                         pt.size = 8,
+                         colors.use = colors.use.reduced,
+                         legend.icon.size = 8,
+                         legend.ncol = 1,
+                         legend.position = "bottom")
+
+
+# Figure S3B ---------
+sample <- Seurat::SetIdent(sample, value = "Full_Annotation")
+ 
+markers <- COSG::cosg(sample,
+                      expressed_pct = 0.2,
+                      n_genes_user = 250)
+ 
+markers <- markers$names
+# Retrieve the df containing the genes and transform it in a list of genes.
+markers <- markers %>% as.list()
+ 
+# Filter out not interesting genes and keep top 100.
+## - Mitochondrial genes: ^MT-
+## - Ribosomal genes: ^RP
+## - Unannotated genes: ^AP0, ^AC0, 
+## - Long, non coding: ^LINC.*
+## - Alternative splice variants: *-AS
+regex <- "[[:alnum:]]+\\.[[:xdigit:]]+|^MT-.*|^RP|.*-AS[[:xdigit:]]$|^LINC.*"
+ 
+# Perform the filtering.
+markers <- lapply(markers, function(x){x[grep(regex, x, invert = TRUE)][1:100]})["IPC-like"][[1]]
+ 
+ 
+#GO ontology
+ensembl = biomaRt::useEnsembl(biomart = "ensembl", 
+                              dataset = "hsapiens_gene_ensembl")
+ 
+# Change from SYMBOL to ENTREZID.
+ans <- unique(biomaRt::getBM(attributes = c("hgnc_symbol", "entrezgene_id"),   
+                             filters = "hgnc_symbol",
+                             values = markers,
+                             mart = ensembl))
+ 
+er  <- clusterProfiler::enrichGO(gene = ans$entrezgene_id,
+                                  OrgDb = org.Hs.eg.db,
+                                  ont = 'BP')
+
+p <- SCpubr::do_TermEnrichmentPlot(mat = er,
+                                   n.terms = 10,
+                                   n.chars = 35,
+                                   legend.length = 10,
+                                   font.size = 16)
+
+# Figure S3C ---------
+p <- SCpubr::do_FeaturePlot(sample = sample,
+                            slot = "scale.data",
+                            enforce_symmetry = TRUE,
+                            max.cutoff = 3,
+                         features = "Neuronal.IPC",
+                         raster = TRUE,
+                         raster.dpi = 2048,
+                         pt.size = 8,
+                         legend.position = "bottom",
+                         legend.length = 15)
+
+# Figure S3D ---------
+p <- SCpubr::do_FeaturePlot(sample = sample,
+                            slot = "scale.data",
+                            enforce_symmetry = TRUE,
+                            max.cutoff = 3,
+                         features = "Cycle",
+                         raster = TRUE,
+                         raster.dpi = 2048,
+                         pt.size = 8,
+                         legend.position = "bottom",
+                         legend.length = 15)
+
+
+# Figure S3E ---------
+Seurat::DefaultAssay(sample) <- "RNA"
+sample@assays$Enrichment <- NULL
+
+markers.path <- "path_to_top100_markers"
+markers <- readRDS(markers.path)
+
+order.use <- c("IPC-like", "CP-like", "Cilia-like", "RG-like", "NPC-like", "OPC-like", "Mesenchymal-like")
+markers.short <- markers[order.use]
+sample$Groups <- NULL
+out <- SCpubr::do_EnrichmentHeatmap(sample = sample, input_gene_list = markers.short, flavor = "UCell", return_object = TRUE)
+sample <- out$Object
+sample <- Seurat::ScaleData(sample, features = rownames(sample))
+
+
+
+
+# Reclustering.
+Seurat::DefaultAssay(sample) <- "RNA"
+sample <- sample[, sample$Annotation == "IPC-like"]
+
+
+
+regress_out_vars <- c("nCount_RNA", "nFeature_RNA", "percent.mt")
+normalization_batch <- "orig.ident"
+integration_batch <- "technology"
+
+sample <- Seurat::FindVariableFeatures(sample)
+sample <- Seurat::ScaleData(sample, assay = "RNA", vars.to.regress = regress_out_vars)
+
+sample <- Seurat::RunPCA(sample)
+
+sample <- harmony::RunHarmony(sample,
+                              assay = "RNA",
+                              group.by.vars = c(normalization_batch, integration_batch),
+                              theta = c(1, 2))
+
+sample <- Seurat::FindNeighbors(sample, reduction = "harmony", dims = 1:30)
+sample <- Seurat::FindClusters(sample, cluster.name = "harmony_clusters")
+sample <- Seurat::RunUMAP(sample, reduction = "harmony", dims = 1:30, reduction.name = "umap.harmony", reduction.key = "UMAPHARMONY_")
+
+Seurat::DefaultAssay(sample) <- "Enrichment"
+
+
+p <- SCpubr::do_DimPlot(sample = sample,
+                        group.by = "subtype",
+                        font.size = 16,
+                        raster = TRUE,
+                        raster.dpi = 2048,
+                        pt.size = 8,
+                        colors.use = subtype.colors,
+                        legend.icon.size = 8,
+                        legend.ncol = 3,
+                        legend.position = "bottom")
+
+
+
+# Figure S3F ---------
+path.to.top100.markers <- "path_to_top100_markers_snRNAseq"
+markers <- readRDS(path.to.top100.markers)
+
+order.use <- c("CP-like", "Cilia-like", "RG-like", "NPC-like", "OPC-like", "Mesenchymal-like")
+markers.short <- markers[order.use]
+markers.short <- lapply(markers.short, function(x){x[1:10]})
+
+Seurat::DefaultAssay(sample) <- "RNA"
+
+p <- SCpubr::do_DotPlot(sample, 
+                        features = markers.short, 
+                        slot = "data", 
+                        group.by = "subtype", 
+                        zscore.data =  TRUE, 
+                        dot.scale = 8) + 
+     ggplot2::scale_size_continuous(range = c(3, 8))
+
+
+```
+
+
+

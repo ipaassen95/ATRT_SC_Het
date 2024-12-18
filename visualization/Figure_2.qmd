@@ -1,0 +1,429 @@
+# Figure 2 {.unnumbered}
+
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+
+
+```{r}
+#| eval: false
+
+# Overarching snRNAseq object.
+path.to.sample <- "path_to_snRNAseq_sample"
+sample <- readRDS(path.to.sample)
+
+subtype.colors <- c("ATRT-TYR"    = "#87191c",
+                    "ATRT-SHH"    = "#243a76",
+                    "ATRT-MYC"    = "#096837")
+
+cell.cycle.colors <- c("G1"    = "#e07a5f",
+                       "G2M"   = "#3C405b", 
+                       "S"     = "#f4f1de")                    
+
+# Figure 2A ---------
+p <- SCpubr::do_DimPlot(sample,
+                        group.by = "subtype",
+                        split.by = "Annotation",
+                        idents.keep = "IPC-like",
+                        font.size = 16,
+                        raster = TRUE,
+                        raster.dpi = 2048,
+                        pt.size = 8,
+                        legend.icon.size = 8,
+                        legend.ncol = 3,
+                        label.size = 4,
+                        legend.position = "bottom",
+                        legend.title = "ATRT subgroup",
+                        na.value = "grey90")
+p <- p[[2]]
+
+p <- p + 
+     ggplot2::scale_color_manual(values = subtype.colors, na.value = "grey90") +
+     ggplot2::ggtitle(NULL) + 
+     ggplot2::theme(legend.position = "bottom") + 
+     ggplot2::guides(color = ggplot2::guide_legend(title.hjust = 0.5,
+                                                   override.aes = list(shape = 21,
+                                                                       fill = subtype.colors,
+                                                                       color = "black",
+                                                                       size = 8)))
+
+
+# Figure 2B ---------
+sample$Annotation <- as.character(sample$Annotation)
+sample <- sample[, sample$Annotation %in% names(colors.use)]
+sample$Phase <- factor(sample$Phase, levels = c("G2M", "G1", "S"))
+
+p <- SCpubr::do_BarPlot(sample = sample,
+                        group.by = "Phase",
+                        split.by = "Annotation",
+                        font.size = 16,
+                        colors.use = cell.cycle.colors,
+                        legend.ncol = 3,
+                        legend.position = "bottom",
+                        legend.title = "Cell Cycle Phase",
+                        order = TRUE,
+                        order.by = "G2M",
+                        position = "fill",
+                        flip = TRUE) + 
+      ggplot2::labs(x = "") + 
+      ggplot2::guides("fill" = ggplot2::guide_legend(reverse = TRUE,
+                                                     title.position = "top",
+                                                     title.hjust = 0.5))   
+
+
+# snATACseq figures
+
+#Script used to make the figures used in main figure 2 
+
+#Libraries needed
+library(SCpubr)
+library(Seurat)
+library(Signac)
+library(ggplot2)
+library(dplyr)
+library(ComplexHeatmap)
+library(UCell)
+library(circlize)
+
+#Set the directory to where you have your data or want to store your output
+setwd("/home/ipaassen/ATRT_sc_atlas/")
+
+#Load seurat object and other datasets needed
+ATRT <- readRDS("/data/projects/p868_CRISPR-RNA_TP53-RB1/irene/231207_ATRT_multiome_EnrichmentUMAP_newclusters.RDS")
+motifs <- readRDS("motif_to_genesymbol.RDS") #To convert motif IDs to TF binding to it
+gene_markers <- readRDS("10X_v3_frozen_samples_normalized_TME_and_TB_annotated_integrated_with_metacell_mapping_reannotated_top100_markers.rds") #Marker genes as identified in analysis pipeline of the snRNA dataset
+
+#Define colour coding
+subtype_colors <- c("ATRT_SHH" = "#253A79", "ATRT_MYC" = "#056A37", "ATRT_TYR" = "#931A1D", "ecMRT_BrainMet" = "#10C663")
+idents_colors <- c("SHH.unspecified" = "#A4C2D6","CP.like" = "#be660e","Cilia.like" = "#be0e0e","OPC.like" = "#0435c8", 
+                   "Rest" = "#84D3E5", 'NPC.like' = "#0466c8",'Hypoxic' = "#2A7072",
+                   'Mesenchymal.like' = "#0ebe66","IPC.like" = "#be920e", 
+                   "MYC.TYR.unspecified" = "#D6A4A9", "RG.like" = "#0497c8")
+TF_colours <- c("MYC.Mes" = "#024431", "SHH.OPC" =  "#211D5C", "SHH.NPC" = "#20428A", "TYR.cilia" = "#8C1730", "SHH.shared" = "#0078BB")
+
+
+
+#
+#
+############### Script for figures #######################
+#
+#
+
+
+#Main figure 2, Panel E
+#
+#UMAP based on enrichment of the different cells on their enrichment scores for the different identities as identified during supervised annotation of the snRNAseq dataset
+do_DimPlot(ATRT, reduction = "umap", group.by = "Enrich.scores",colors.use = idents_colors, plot.axes = F) #enrichUMAP
+
+#Supplementary Figure 6, Panel A
+#
+#Stacked barplot of identities represented ber patient sample of the snMultiome data
+do_BarPlot(ATRT, split.by = 'sample1', group.by = 'Enrich.scores',colors.use = idents_colors, 
+           position = 'fill', order = F) 
+
+#
+#
+############## Calculation of Differential motif activity per mature-like cells vs. IPC-like cells #########################
+#
+#
+
+
+#Settings for differenital motif activityt calling
+ATRT <- SetIdent(ATRT, value = "Enrich.scores")
+DefaultAssay(ATRT) <- 'chromvar'
+
+#
+#
+######### Main Figure 2 Panel F and Supplementary Figure 6 Panel F #############
+#
+#
+
+
+#Cilia-like
+Cilia.TFs <- FindMarkers(
+  ATRT,
+  ident.1 = "IPC.like",
+  ident.2 = "Cilia.like",
+  logfc.threshold = 0,
+  min.pct = 0.1,
+  only.pos = F)
+
+#
+############# Main Figure 2 F #################
+#
+#Make vulcanoplot of p-value and log2FC
+d1 <- SCpubr::do_VolcanoPlot(sample = ATRT,
+                             de_genes = Cilia.TFs,
+                             pval_cutoff = 1e-40,
+                             FC_cutoff = 1,
+                             plot.title = "ATRT-TYR: IPC.vs.Cilia",add_gene_tags = F) + scale_color_brewer(palette = "OrRd", direction = -1)
+
+
+#Filter for highest TYR marker genes
+Cilia.specific <-Cilia.TFs[Cilia.TFs$avg_log2FC < -1 & Cilia.TFs$p_val_adj < 1e-40,]
+Cilia.genes <- motifs$symbol[motifs$motif %in% rownames(Cilia.specific)]
+Cilia.specific$gene <- motifs$symbol[motifs$motif %in% rownames(Cilia.specific)]
+
+
+order_genes <- unique(c(rownames(Cilia.specific)))
+TYR_motifs <- motifs[motifs$motif %in% order_genes,]
+TYR_motifs$symbol <- gsub("\\s*\\([^\\)]+\\)","",TYR_motifs$symbol)
+Group_order <- list("Enrich.scores" = c("IPC.like","RG.like" ,"NPC.like","OPC.like","SHH.unspecified","Mesenchymal.like","CP.like","Cilia.like","MYC.TYR.unspecified"))
+
+#
+######### Supplementary Figure 6 F #################
+#
+
+#heatmap on chromvar scores
+do_ExpressionHeatmap(ATRT, features = TYR_motifs$motif, groups.order = Group_order,
+                     group.by = "Enrich.scores", assay = "chromvar", enforce_symmetry = T, features.order = TYR_motifs$motif, 
+                     diverging.palette = "PuOr",legend.title = "Chromvar score",axis.text.x.angle = 90)
+
+#heatmap on TF expression 
+do_ExpressionHeatmap(ATRT, features = TYR_motifs$symbol, features.order = TYR_motifs$symbol, groups.order = Group_order,
+                     group.by = "Enrich.scores", assay = "RNA",slot = "scale.data", enforce_symmetry = T, axis.text.x.angle = 90)
+
+
+
+
+#Plot average expression of the different cluster for 2 most specific TYR genes: OTX2, LMX1A and LMX1B 
+TYR <- AverageExpression(ATRT, assay = "RNA",features = c("LMX1A","OTX2","LMX1B"),group.by = "Enrich.scores")$RNA
+TYR_Av <- as.data.frame(TYR[,c(3,2,1)])
+TYR_Av$Gene <- rownames(TYR_Av)
+TYR_Av  <- gather(TYR_Av, key = "Cell.identity", value = "RNA_Log", -Gene)
+
+#
+#
+########## Main Figure 2, Panel I ##################
+#
+#
+ggplot(TYR_Av, aes(x=Cell.identity, y = RNA_Log, fill = Cell.identity)) + geom_bar(stat = "identity") + facet_wrap(~Gene) + scale_fill_brewer(palette = "Reds") + theme_bw()
+
+
+#
+#
+######### Supplementary Figure 6, Panel C #############
+#
+#
+
+#NPC-like
+NPC.TFs <- FindMarkers(
+  ATRT,
+  ident.1 = "IPC.like",
+  ident.2 = "NPC.like",
+  logfc.threshold = 0,
+  min.pct = 0.1,
+  only.pos = F,subset.ident = SHH)
+
+#Make vulcanoplot of p-value and log2FC
+SCpubr::do_VolcanoPlot(sample = ATRT,
+                       de_genes = NPC.TFs,
+                       pval_cutoff = 1e-70,
+                       FC_cutoff = 1,
+                       plot.title = "ATRT-SHH: IPC.vs.NPC",add_gene_tags = F) + scale_color_brewer(palette = "OrRd", direction = -1)
+
+
+#Filter for highest SHH marker genes
+NPC.specific <-NPC.TFs[NPC.TFs$avg_log2FC < -1 & NPC.TFs$p_val_adj < 1e-70,]
+NPC.specific$gene <- motifs$symbol[motifs$motif %in% rownames(NPC.specific)]
+
+
+#
+#
+######### Supplementary Figure 6, Panel D #############
+#
+#
+
+# OPC-like vs IPC. like
+OPC.TFs <- FindMarkers(
+  ATRT,
+  ident.1 = "IPC.like",
+  ident.2 = c("OPC.like"),
+  logfc.threshold = 0,
+  min.pct = 0.1,
+  only.pos = F)
+
+# Make vulcanoplot of p-value and log2FC
+SCpubr::do_VolcanoPlot(sample = ATRT,
+                       de_genes = OPC.TFs,
+                       pval_cutoff = 1e-10,
+                       FC_cutoff =0.5,
+                       plot.title = "ATRT-SHH: IPC.vs.NPC+OPC",add_gene_tags = F) + scale_color_brewer(palette = "OrRd", direction = -1)
+
+
+#Filter for highest SHH marker genes
+OPC.specific <-OPC.TFs[OPC.TFs$avg_log2FC < -0.5 & OPC.TFs$p_val_adj < 1e-10,]
+OPC.specific$gene <- motifs$symbol[motifs$motif %in% rownames(OPC.specific)]
+
+
+#
+#
+######### Supplementary Figure 6, Panel E #############
+#
+#
+#
+#Motifs against NPC and OPC both together
+OPC.and.NPC <- list(NPC.like = rownames(NPC.specific), OPC.like = rownames(OPC.specific))
+OPC.and.NPC.motifs <- intersect(rownames(NPC.specific),rownames(OPC.specific)) #Subset for motifs found in both
+
+overlap_genes <- motifs$symbol[motifs$motif %in% OPC.and.NPC.motifs] #Get TFs behind motif ID
+overlap_genes <- gsub("\\s*\\([^\\)]+\\)","",overlap_genes)
+Group_order <- list("Enrich.scores" = c("IPC.like","RG.like" ,"NPC.like","OPC.like","SHH.unspecified","Mesenchymal.like","CP.like","Cilia.like","MYC.TYR.unspecified"))
+
+# Expression Heatmap of the chromvar scores
+do_ExpressionHeatmap(ATRT, features = OPC.and.NPC.motifs, groups.order = Group_order,axis.text.x.angle = 90,
+                     group.by = "Enrich.scores", assay = "chromvar", enforce_symmetry = T, features.order = OPC.and.NPC.motifs, 
+                     diverging.palette = "PuOr",legend.title = "Chromvar score")
+
+# Expression heatmap of the TFs underlying the motif IDs
+do_ExpressionHeatmap(ATRT, features = overlap_genes, features.order = overlap_genes, groups.order = Group_order,axis.text.x.angle = 90,
+                     group.by = "Enrich.scores", assay = "RNA",slot = "scale.data", enforce_symmetry = T)
+
+
+
+
+#
+#
+######### Supplementary Figure 6, Panel B #############
+#
+#
+
+#Mesenchymal-like
+Mesenchymal.TFs <- FindMarkers(
+  ATRT,
+  ident.1 = "IPC.like",
+  ident.2 = "Mesenchymal.like",
+  logfc.threshold = 0,
+  min.pct = 0.1,
+  only.pos = F)
+
+#Make vulcanoplot of p-value and log2FC
+SCpubr::do_VolcanoPlot(sample = ATRT,
+                       de_genes = Mesenchymal.TFs,
+                       pval_cutoff = 1e-40,
+                       FC_cutoff = 5,
+                       plot.title = "IPC.vs.Mesenchymal",add_gene_tags = F) + scale_color_brewer(palette = "OrRd", direction = -1)
+
+
+#Filter for highest MYC marker genes
+Mesenchymal.specific <-Mesenchymal.TFs[Mesenchymal.TFs$avg_log2FC < -5 & Mesenchymal.TFs$p_val_adj < 1e-40,]
+Mesenchymal.specific$gene <- motifs$symbol[motifs$motif %in% rownames(Mesenchymal.specific)]
+
+
+
+#Bind all motifs together into one list which will be used as input for the heatmap depicted in figure 2, panel D
+big_list.motifs <- list(SHH.NPC = rownames(NPC.specific),
+                        SHH.OPC = rownames(OPC.specific),
+                        TYR.cilia = rownames(Cilia.specific),
+                        MYC.Mes = rownames(Mesenchymal.specific))
+
+#
+#
+## Main Figure 2, Panel G
+#
+#
+#Make enrichUMAP with most interesting TFs
+do_FeaturePlot(ATRT, features = c("LMX1A"), reduction = "umap", 
+               assay = 'RNA', order = T, legend.title = "LMX1A expression",
+               legend.position = "bottom")
+
+#
+#
+## Main Figure 2, Panel H
+#
+#
+#LMX1A is motif ID MA0702.2
+do_FeaturePlot(ATRT, features = c("MA0702.2"), reduction = "umap", assay = 'chromvar', order = T, enforce_symmetry = F,
+               legend.title = "LMX1A chromvar score",
+               label.size = 4,
+               use_viridis = T,
+               viridis.palette = "inferno",
+               viridis.direction = -1,
+               min.cutoff = 0,
+               legend.position = "bottom")
+
+
+#
+#
+#
+# Making of Heatmap of Figure 2, Panel D #################
+#
+#
+
+#Make final heatmap of motif activity using chrom var counts
+chromvar_score <- GetAssayData(ATRT,  assay = "chromvar", slot = "data")
+
+#Make dataframe to use for the row annotation, where the different TFs are linked to the ATRT subtype there are identified in
+row_order <- unlist(big_list.motifs)  
+TFs <- as.data.frame(row_order)
+TFs$ident <- rownames(TFs)
+TFs$ident <- gsub('[[:digit:]]+',"",TFs$ident)
+colnames(TFs) <- c("Motif","ident")
+duplets <- TFs[duplicated(TFs$Motif),]
+duplets$ident <- "SHH.shared"
+duplets$ident[8] <- "MYC.Mes"
+for (i in 1:nrow(duplets)){
+  m <- duplets$Motif[i]
+  duplets$gene[i] <- motifs$symbol[motifs$motif == m]
+}
+
+`%notin%` <- Negate(`%in%`)
+TFs <- TFs[TFs$Motif %notin% duplets$Motif,]
+for (i in 1:nrow(TFs)){
+  m <- TFs$Motif[i]
+  TFs$gene[i] <- motifs$symbol[motifs$motif == m]
+}
+
+TFs <- rbind(duplets, TFs) #Final dataframe to use for row annotation
+
+#Make row annotation
+row_ha = rowAnnotation(Identitiy.called = TFs$ident, col = list(Identitiy.called = TF_colours))
+
+#Dataframe to use for column annotation and making of column annotation
+meta <- ATRT@meta.data
+types <- meta$Enrich.scores
+cluster = cluster_between_groups(chromvar_score[rownames(chromvar_score),], types)
+column_ha = HeatmapAnnotation(Subtype = meta$subtype, Identity = meta$Enrich.scores, col = list(Subtype = subtype_colors, Identity = idents_colors))
+
+#Colour settings for heatmap
+col_fun = colorRamp2(c(-4, 0, 4), c("darkblue", "white", "darkred"))
+
+#Filter dataset on only motif IDs of interest
+data <- chromvar_score[TFs$Motif,]
+
+
+pdf("heatmap_TFOI_ATRTs_only_withlegend.pdf",width=25, height=25) 
+Heatmap(data,
+        top_annotation = column_ha,
+        width = unit(20, "cm"), height = unit(20, "cm"),
+        right_annotation = row_ha,
+        row_labels = TFs$gene,
+        col = col_fun,
+        row_names_gp = gpar(fontsize = 5),
+        #row_order = TFs$Motif,
+        cluster_rows = F,
+        border=T,
+        show_heatmap_legend = F,
+        row_split = TFs$ident,
+        cluster_columns = cluster, column_split = 8,
+        show_row_dend = F, show_column_names = F) 
+dev.off()
+
+
+
+write.table(Seurat::GetAssayData(ATRT, assay = "peaks", slot = "counts"), 
+            col.names = TRUE, 
+            row.names = TRUE, 
+            quote = FALSE, 
+            sep = "\t", 
+            file = gzfile("ATRT_tissue_ATAC_peaks_counts_raw.tsv.gz"))
+
+
+```
+

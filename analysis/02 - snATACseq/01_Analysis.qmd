@@ -1,0 +1,362 @@
+# snATACseq analysis {.unnumbered}
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+```
+
+```{r}
+#| eval: false
+
+#This scripts described how to pre-process 10X Genomics multiome data starting with an output of cell-ranger-arc
+
+#For questions contact the Drost Lab: j.drost@prinsesmaximacentrum.nl
+
+#Pipeline as described below was used for organoids as well as tissue samples used for scMultiome-seq
+
+#Libraries needed
+library(Signac)
+library(JASPAR2020)
+library(TFBSTools)
+library(Seurat)
+library(EnsDb.Hsapiens.v86)
+library(BSgenome.Hsapiens.UCSC.hg38)
+library(future)
+library(ggplot2)
+library(Matrix)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(patchwork)
+library(Polychrome)
+library(biomaRt)
+library(GO.db)
+library(org.Hs.eg.db)
+library(RSQLite)
+library(stringr)
+library(SingleR)
+library(clustree)
+library(infercnv)
+library(celldex)
+library(tidyr)
+library(tibble)
+library(plyr)
+library(plyranges)
+library(chromVAR)
+
+#Change to your working directory
+setwd("/hpc/pmc_drost/rstudio_ire/multiome_IP/libraries")
+
+#plan("multicore", workers = 4)
+options(future.globals.maxSize = 50 * 1024 ^ 3)
+
+##Load gene sets used to remove confounder effect of cell cycle and red blood cells
+genesRM <- readRDS("genes_remove_HB_CC_stress.RDS")
+
+
+# Configure variables ----
+basedir <- getwd()
+CFG <- list()
+CFG$data_dir <- paste0(basedir, "/data/")
+CFG$work_dir <- paste0(basedir, "/work_dir/")
+CFG$output_dir <- paste0(basedir, "/output/")
+CFG$metadata_dir <- paste0(basedir)       #Needs to be changed depending on where this file is stored
+CFG$workspace_dir <- paste0(basedir, "/workspace/")
+CFG$ndims <- 40           #Number of dimensions for dimensional reduction
+CFG$random_seed <- 1234   #Random seed for UMAP generation
+CFG$mito_pattern <- "^MT-"
+CFG$min_txpts <- 800      #As discussed with the single cell facility in the Princess Maxima Center 
+CFG$max_txpts <- 30000    
+CFG$min_features <- 500  
+CFG$max_pctmito <- 20     
+CFG$min_TSS <- 1
+CFG$max_nucleo <- 1.5
+CFG$max_frgmts <- 50000
+CFG$min_frgmts <- 800
+CFG$max_pct_hemo <- 5
+CFG$gradient_colors = viridis::viridis(101, direction = -1)
+CFG$cbPalette4 <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#EE5050",
+                    "#111111", "#00E656", "#C8C8C8", "#E6009F", "hotpink1", "#D55E00", "#CC79A7",
+                    "cyan2", "darkmagenta")
+set.seed(CFG$random_seed)
+
+
+#Get gene annotations for hg38
+annotation <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
+ucsc.levels <- str_replace(string=paste("chr",seqlevels(annotation),sep=""), pattern="chrMT", replacement="chrM") #mitochondria annotation
+seqlevels(annotation) <- ucsc.levels
+genome(annotation) <- "hg38"
+
+
+# Load data ----
+## Load metadata and create directory information ----
+metadata.exp <- read.table(paste0('/hpc/pmc_drost/rstudio_ire/multiome_IP/libraries/multiome_drost_metadata_new.txt'), header=T) #Loads metadata table for experiments (M) with accompanying library and analysis numbers
+
+experiments <-unique(metadata.exp[,1])   #Here you can subset for experiments (M) of interest (or just take all)
+
+lib <- unique(paste0(metadata.exp$experiment, "_",
+                     metadata.exp$RNA_lib, "_",
+                     metadata.exp$ATAC_lib, "_",
+                     metadata.exp$analysis
+))  #Generates character vector with the full path name on the surfdrive seq_data folder to identify the libraries per experiment
+
+#Generates dataframe with the directory for the count install.packages ATAC fragments (column 3) to be retrieved
+dir <- data.frame(experiments, 
+                  dirFilt =paste0(CFG$data_dir, lib, "/filtered_feature_bc_matrix"),
+                  dirAll = paste0(CFG$data_dir, lib)) 
+
+select_data <- unique((metadata.exp %>% filter(source %in% c("organoid","organoids")))[,1]) #this line kchanges if you take the tissue data
+
+dir <- dir[which(dir$experiments %in% select_data),]
+
+
+## Function to calculate colSums in GEX data per experiment  ---
+## Function to calculate colSums in GEX data per experiment  ---
+fun.GEX.colSums <- function(a){
+  #b <- Matrix::colSums(counts.list[[a]]) 
+  b <- Matrix::colSums(counts.list[[a]]$'Gene Expression') ##this is for combined analysis
+  return(b)
+}
+
+# load the RNA and ATAC data and create a Seurat object
+##Here we read only GEX data
+fun.READ10X <- function(a){
+  counts.list <- Read10X(data.dir = dir[dir$experiments == a, 2]) 
+  #counts.list <- counts.list[[1]] ##comment this if running both ATAC and GEX together
+  return(counts.list)
+}
+
+fun.GEX.meta <- function(a){
+  data <- counts.list[[a]]$'Gene Expression'                                #use this if doing combined ATAC and GEX reading
+  #data <- counts.list[[a]]    
+  mitos <- grep(CFG$mito_pattern, rownames(data), value = TRUE)             #Find mitochondrial genes
+  percent_mito <- 100 * Matrix::colSums(data[mitos, ]) / GEX.colSums[[a]]   #Calculate percentage of mitochondrial genes per cell;  gives named vector which is necessary for adding the meta.data later (barcodes have to be included)
+  nuclear <- setdiff(rownames(data), mitos)                                 #Define nuclear genes via setdiff function
+  log2_transcript_counts <- log2(1 + Matrix::colSums(data[nuclear , ]))     #log2_transcript_counts for nuclear genes
+  log2_feature_counts <- log2(1 + Matrix::colSums(data[nuclear, ] > 0))
+  meta <- data.frame(percent_mito = percent_mito,                           #create meta.data df for Seurat object
+                     log2_counts = log2_transcript_counts,
+                     log2_features = log2_feature_counts,
+                     source = rep(metadata.exp[match(a, metadata.exp[,1]),6], ncol(data)),
+                     lib = rep(a, ncol(data)))                              #Automatically adds correct experiment to df
+  list <- list(meta, nuclear)
+  return(list)
+}
+
+
+fun.GEX.Seurat <- function(a){
+  counts <- counts.list[[a]]$`Gene Expression`[GEX.meta[[a]][[2]],]                               #use this if doing combined ATAC and GEX reading
+  #counts <- counts.list[[a]]
+  srat <- CreateSeuratObject(counts = counts, assay = "RNA", meta = GEX.meta[[a]][[1]])        #Add information in meta.data from above
+  return(srat)
+}
+
+## Load data for selected data/library ----
+counts.list <- lapply(select_data, fun.READ10X)     #Make sure to use the correct function (both, GEX, ATAC)
+names(counts.list) <- select_data
+GEX.colSums <- sapply(select_data, fun.GEX.colSums)
+names(GEX.colSums) <- select_data
+
+## Generate GEX meta.data list ----
+GEX.meta <- lapply(select_data, fun.GEX.meta)
+names(GEX.meta) <- select_data
+##Create Seurat object with data and metadata
+srat.GEX <- sapply(select_data, fun.GEX.Seurat)
+
+# create  ATAC assay and add it to the object
+##But first, read peak files
+grFiles <- list()
+for(exp in select_data){
+  # ##read peaks file
+  bedFile <- read.table(paste0(dir$dirAll[match(exp, dir$experiments)], "/atac_peaks.bed"),
+                        col.names = c("chr", "start", "end")
+  )
+  grFiles[[exp]] <- makeGRangesFromDataFrame(bedFile)
+}
+# Create a unified set of peaks to quantify in each dataset
+combined.peaks <- disjoin(x = c(grFiles[[1]], grFiles[[2]], grFiles[[3]]))
+# Filter out bad peaks based on length and combine peaks
+peakwidths <- width(combined.peaks)
+combined.peaks <- combined.peaks[peakwidths  < 10000 & peakwidths > 20]
+##Here filter further to only keep standard chromosomes
+combined.peaks <- keepStandardChromosomes(combined.peaks, pruning.mode="coarse")
+##Here filter to remove blacklisted genes
+combined.peaks <- subsetByOverlaps(x = combined.peaks, ranges = blacklist_hg38_unified, invert = TRUE)
+
+atacAll <- srat.GEX
+for(exp in select_data){
+  fragpath <- paste0(dir$dirAll[match(exp, dir$experiments)], "/atac_fragments.tsv.gz")
+  atacAll[[exp]][["ATAC"]] <- CreateChromatinAssay(
+    counts = counts.list[[exp]]$Peaks,
+    sep = c(":", "-"),
+    fragments = fragpath,
+    annotation = annotation
+  )
+  DefaultAssay(atacAll[[exp]]) <- "ATAC"
+  atacAll[[exp]] <- NucleosomeSignal(atacAll[[exp]])
+  atacAll[[exp]] <- TSSEnrichment(atacAll[[exp]])
+  ##Create fragment object for each sample
+  frags <- CreateFragmentObject(path = fragpath)
+  CRcounts <- FeatureMatrix(fragments =Fragments(atacAll[[exp]]),
+                            features = combined.peaks, 
+                            cells = colnames(atacAll[[exp]]))
+  atacAll[[exp]][["peaks"]] <- CreateChromatinAssay(
+    counts = CRcounts,
+    fragments = fragpath,
+    annotation = annotation
+  )
+  
+  
+pdf(file=paste0(CFG$output_dir, exp, "_QC_Seurat_merge_blacklist.pdf"))
+  p <- VlnPlot(
+    object = atacAll[[exp]],
+    features = c("nCount_RNA", "nCount_ATAC", "TSS.enrichment", "nucleosome_signal"),
+    ncol = 4,
+    pt.size = 0
+  )
+  print(p)
+  dev.off()
+  saveRDS(atacAll, "srat_merged_disjoin_organoids.RDS")
+}
+
+
+for(exp in select_data){
+  atacAll[[exp]] <- subset(
+    x = atacAll[[exp]],
+    subset = nCount_RNA >= CFG$min_txpts &    #Minimum threshold transcripts 
+      nCount_RNA <= CFG$max_txpts &     #Maximum threshold transcripts
+      percent_mito <= CFG$max_pctmito &
+      nucleosome_signal < CFG$max_nucleo &
+      TSS.enrichment > CFG$min_TSS &
+      nCount_ATAC < CFG$max_frgmts &
+      nCount_ATAC > CFG$min_frgmts)
+  pdf(file=paste0(CFG$output_dir, exp, "_QC_filtered_merged_BL.pdf"))
+  p <- VlnPlot(
+    object = atacAll[[exp]],
+    features = c("nCount_RNA", "nCount_ATAC", "TSS.enrichment", "nucleosome_signal"),
+    ncol = 4,
+    pt.size = 0
+  )
+  print(p)
+  dev.off()
+}
+
+
+##Merge seurat objects from the filtered libraries
+srat <- merge(atacAll[[1]], c(atacAll[[2]], atacAll[[3]]),
+              add.cell.ids = names(atacAll))
+
+## Normalize GEX data using LogNormalize ----
+DefaultAssay(srat) <- "RNA"
+srat <- NormalizeData(srat, normalization.method = "LogNormalize")    #Goes to slot "Data" of RNA assay (GetAssayData function)
+srat <- ScaleData(srat, features = rownames(srat), verbose = FALSE)   #Goes to slot "scale.data" of RNA assay (GetAssayData function)
+srat <- FindVariableFeatures(srat)
+
+## Normalize GEX data using SCTransform ----
+# SCTransform automatically scales data and finds variables
+DefaultAssay(srat) <- "RNA"
+srat <- SCTransform(srat,verbose = FALSE, variable.features.n = 3000)  #Specify number of features for downstream analysis
+
+saveRDS(srat, "090523_srat_SCT_done")
+srat <- readRDS("120523_srat_SCT_done_organoids")
+
+## Inspect most highly variable genes ----
+DefaultAssay(srat) <- "SCT"
+top10 <- head(VariableFeatures(srat), 10)
+plot1 <- VariableFeaturePlot(srat)
+plot2 <- LabelPoints(plot = plot1, points = top10)
+plot2
+
+##Dimensional reduction ----
+### PCA: Calculation ----
+# There can only be one PCA in the Seurat object. Start with SCTransform to generate UMAP; LogNormalized will be used for gene expression analysis
+srat <- RunPCA(srat, npcs =50)                             #PCA for SCTransformed Seurat object
+### PCA: Visualize nuclei along the first two principal axes per normalization method ----
+DimPlot(srat, reduction = "pca", pt.size = 1, group.by = 'lib', cols = CFG$cbPalette4)
+### Elbow Plot to choose number of dimensions ----
+ElbowPlot(srat, ndims = 50, reduction = "pca")
+###Alternatively, consider a more quantitative approach to determine how many pcs to use
+# Determine percent of variation associated with each PC
+pct <- srat@reductions$pca@stdev / sum(srat@reductions$pca@stdev) * 100
+# Calculate cumulative percents for each PC
+cum <- cumsum(pct)
+# Determine which PC exhibits cumulative percent greater than 90% and % variation associated with the PC as less than 5
+co1 <- which(cum > 90 & pct < 5)[1]
+# Determine the difference between variation of PC and subsequent PC
+co2 <- sort(which((pct[1:length(pct)-1] - pct[2:length(pct)]) > 0.1),  decreasing = T)[1] + 1 # last point where change of % of variation is more than 0.1%.
+# Minimum of the two calculation
+pcs <- min(co1, co2) # change to any other number
+
+### PC scores heatmaps ----
+DimHeatmap(srat, dims = 1:20, cells = 100)
+
+### UMAP (before filtering) ----
+srat <- RunUMAP(srat, dims = 1:30, n.neighbors = 30)          #Default n.neighbors = 30
+pdf(file = "Unfiltered variable features UMAP_merged.pdf")
+DimPlot(srat, reduction = "umap", pt.size = 0.5, group.by = 'lib', cols = CFG$cbPalette4) +
+  ggtitle("SCT unfiltered UMAP, 20 PCs")
+dev.off()
+
+
+## Filter certain gene groups from variable features ----
+# This concerns cell cycle genes, stress genes etc. 
+##It makes use of the SCutils package developed by our scGenomics facility
+### Remove cells with high hemoglobin content ----
+hb.genes <- genesRM$hb.genes
+hb.genes <- intersect(hb.genes, rownames(srat))
+hb.counts <- Matrix::colSums(srat@assays$RNA@counts[hb.genes,])
+srat <- AddMetaData(srat,
+                    col.name = "log2hb_genes",
+                    metadata = log2(1 + hb.counts))
+srat <- AddMetaData(srat,
+                    col.name = "pct_hemo",
+                    metadata = 100 * hb.counts/srat@meta.data$nCount_RNA)
+srat <- AddMetaData(srat,
+                    col.name = "percent.rb",
+                    metadata = PercentageFeatureSet(srat, pattern = "^RP[SL]"))
+srat <- CellCycleScoring(object = srat,
+                         g2m.features = cc.genes$g2m.genes,
+                         s.features = cc.genes$s.genes)
+
+srat <- subset(srat, pct_hemo <= CFG$max_pct_hemo)  #Will likely only filter out few nuclei
+
+#Now we have a filtered dataset where we need to add a chromvar assay 
+#Add a chromVAR array to the seurat object 
+# Get a list of motif position frequency matrices from the JASPAR database
+pfm <- getMatrixSet(
+  x = JASPAR2020,
+  opts = list(collection = "CORE",species = "Homo sapiens", tax_group = 'vertebrates', all_versions = FALSE)
+)
+
+# add motif information
+DefaultAssay(srat) <- 'peaks'
+tissue <- SetIdent(srat, value="cell_status_and_subtype")
+tissue <- AddMotifs(
+  object = tissue,
+  genome = BSgenome.Hsapiens.UCSC.hg38,
+  pfm = pfm
+)
+
+
+#Add chromVar assay to the seurat object
+register(MulticoreParam(8))
+register(SerialParam())
+DefaultAssay(srat) <- "peaks"
+
+# Calculate chromvar scores on the peak assay
+#Run this as seperate script as job instead of in the command line 
+tissue <- RunChromVAR(
+  object = srat,
+  assay = 'peaks',
+  genome = BSgenome.Hsapiens.UCSC.hg38)
+
+
+
+
+
+
+```
+
+

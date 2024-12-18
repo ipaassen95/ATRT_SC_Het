@@ -1,0 +1,180 @@
+# Figure S1 {.unnumbered}
+
+
+```{r}
+#| results: "asis"
+#| echo: false
+#| eval: false
+source("../_common.R")
+suppressMessages(suppressPackageStartupMessages(library("Seurat")))
+suppressMessages(library("magrittr"))
+```
+
+
+```{r}
+#| eval: false
+# Enrique Blanco Carmona
+# e.blancocarmona@kitz-heidelberg.de
+# PhD Student – Clinical Bioinformatics
+# Division of Pediatric Neurooncology (B062)
+# DKFZ-KiTZ | Germany
+
+
+
+# Overarching Seurat object.
+path.to.sample <- "path_to_snRNAseq_sample"
+sample <- readRDS(path.to.sample)
+
+orig.colors <- c("ATRT-TYR-1" = "#feac81",
+                 "ATRT-TYR-2" = "#f78462",
+                 "ATRT-TYR-3" = "#b9563f",
+                 "ATRT-TYR-4" = "#f05b43",
+                 "ATRT-TYR-5" = "#c62320",
+                 "ATRT-TYR-6" = "#831818",
+                 "ATRT-SHH-1" = "#abc9c8",
+                 "ATRT-SHH-2" = "#72aeb6",
+                 "ATRT-SHH-3" = "#4692b0",
+                 "ATRT-SHH-4" = "#2f70a1",
+                 "ATRT-SHH-5" = "#bad6f9",
+                 "ATRT-SHH-6" = "#7db0ea",
+                 "ATRT-SHH-7" = "#447fdd",
+                 "ATRT-SHH-8" = "#134b73",
+                 "ATRT-SHH-9" = "#0a3351",
+                 "ATRT-MYC-1" = "#c2d6a4",
+                 "ATRT-MYC-2" = "#9cc184",
+                 "ATRT-MYC-3" = "#3c7c3d",
+                 "ATRT-MYC-4" = "#1f5b25")
+
+subtype.colors <- c("ATRT-TYR"    = "#87191c",
+                    "ATRT-SHH"    = "#243a76",
+                    "ATRT-MYC"    = "#096837")
+
+
+# Figure S1A ---------
+sample$TME <- ifelse(sample$seurat_clusters %in% c("20", "19", "16", "13"), "TME", "Tumor")
+
+sample$ID <- factor(sample$ID, levels = names(orig.colors))
+
+p <- SCpubr::do_BarPlot(sample,
+                        group.by = "ID",
+                        split.by = "unintegrated_clusters",
+                        facet.by = "TME",
+                        font.size = 16,
+                        colors.use = orig.colors,
+                        position = "fill",
+                        flip = TRUE,
+                        xlab = "Clusters",
+                        legend.ncol = 4)
+
+# Figure S1B ---------
+path.to.TME.markers <- "path_to_TME_markers"
+markers <- readRDS(path.to.TME.markers)
+
+p <- SCpubr::do_EnrichmentHeatmap(sample = sample[, sample$unintegrated_clusters %in% c("20", "19", "16", "13")],
+                                  input_gene_list = markers,
+                                  group.by = "unintegrated_clusters",
+                                  flavor = "UCell",
+                                  flip = TRUE,
+                                  font.size = 16,
+                                  cluster = TRUE) + 
+      ggplot2::xlab("Clusters")
+
+
+# Figure S1C ---------
+p <- SCpubr::do_DimPlot(sample,
+                        group.by = "subtype",
+                        reduction = "umap_unintegrated",
+                        font.size = 16,
+                        raster = TRUE,
+                        raster.dpi = 2048,
+                        pt.size = 8,
+                        colors.use = subtype.colors,
+                        legend.icon.size = 8,
+                        legend.ncol = 3,
+                        legend.position = "bottom")
+
+# Figure S1D ---------
+path.to.CNV.scores <- "path_to_CNV_scores"
+scores <- readRDS(path.to.CNV.scores)
+
+
+out <- SCpubr::do_CopyNumberVariantPlot(sample = sample,
+                                        infercnv_object = scores,
+                                        chromosome_locations = SCpubr::human_chr_locations,
+                                        using_metacells = TRUE,
+                                        metacell_mapping = sample$metacell_mapping,
+                                        return_object = TRUE)
+
+sample <- out$Object
+
+p <- SCpubr::do_FeaturePlot(sample,
+                            features = "22",
+                            enforce_symmetry = TRUE,
+                            symmetry.type = "centered",
+                            symmetry.center = 1,
+                            reduction = "umap_unintegrated",
+                            font.size = 16,
+                            max.cutoff = 1.1,
+                            min.cutoff = 0.9,
+                            legend.title = "Chr. 22 CNV score",
+                            raster = TRUE,
+                            raster.dpi = 2048,
+                            pt.size = 8,
+                            legend.position = "bottom")
+
+ # Figure S1F ---------                           
+markers <- list("ATRT-TYR" = c("TYR", "MITF", "OTX2"),
+                "ATRT-SHH" = c("HES1", "GLI2", "BOC"),
+                "ATRT-MYC" = c("MYC", "CEBPB", "HOTAIR"))
+
+p1 <- SCpubr::do_EnrichmentHeatmap(sample, 
+                                   input_gene_list = markers, 
+                                   group.by = "subtype", 
+                                   flip = FALSE, 
+                                   font.size = 16, 
+                                   flavor = "UCell", 
+                                   features.order = c("ATRT-TYR", "ATRT-SHH", "ATRT-MYC"),
+                                   groups.order = list("subtype" = c("ATRT-MYC", "ATRT-SHH", "ATRT-TYR")),
+                                   legend.position = "bottom",
+                                   sequential.palette = "YlOrRd",
+                                   legend.length = 10,
+                                   number.breaks = 5) + 
+      ggplot2::labs(y = "",
+                    x = "Gene set") + 
+      ggplot2::theme(axis.text.y.right = ggplot2::element_blank(),
+                     axis.ticks.y.right = ggplot2::element_blank(),
+                     plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0))
+
+p2 <- SCpubr::do_ExpressionHeatmap(sample, 
+                                   features = markers, 
+                                   group.by = "subtype", 
+                                   flip = FALSE, 
+                                   font.size = 16, 
+                                   features.order = unlist(unname(markers)), 
+                                   legend.position = "bottom",
+                                   legend.length = 10,
+                                   number.breaks = 5,
+                                   groups.order = list("subtype" = c("ATRT-MYC", "ATRT-SHH", "ATRT-TYR"))) + 
+      ggplot2::labs(y = "",
+                    x = "Genes") + 
+      ggplot2::theme(plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0))
+
+layout <- "AAABBBBBBBBB
+           AAABBBBBBBBB
+           AAABBBBBBBBB
+           CCCCCCCCCCCC"
+
+p <- patchwork::wrap_plots(A = p1[[1]], 
+                           B = p2[[1]],
+                           C = patchwork::guide_area(),
+                           design = layout,
+                           guides = "collect") & 
+     patchwork::plot_annotation(theme = ggplot2::theme(legend.position = "bottom"))
+
+```
+
+
+
+
+
+
