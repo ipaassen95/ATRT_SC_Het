@@ -1,5 +1,6 @@
 # Figure S8 {.unnumbered}
 
+
 ```{r}
 #| results: "asis"
 #| echo: false
@@ -8,103 +9,9 @@ source("../_common.R")
 suppressMessages(suppressPackageStartupMessages(library("Seurat")))
 suppressMessages(library("magrittr"))
 ```
-
+  
 ```{r}
 #| eval: false
-library(magrittr)
+# Code for this figure included in Figure 2.
 
-# Figure S8C ---------
-path_to_dds_object <- "path_to_dds_object"
-dds <- readRDS(path_to_dds_object)
-
-# Transform data.
-vsd <- DESeq2::vst(dds)
-
-# PCA plot.
-p1 <- DESeq2::plotPCA(vsd, intgroup = c("treatment")) + 
-      ggplot2::theme_bw(base_size = 16) + 
-      ggplot2::coord_cartesian() + 
-      ggplot2::scale_color_manual(values = stats::setNames(SCpubr::do_ColorPalette("steelblue", square = TRUE), levels(dds$treatment))) + 
-      ggplot2::guides("color" = ggplot2::guide_legend(title = "Treatment", title.position = "top", title.hjust = 0.5, ncol = 2)) + 
-      ggplot2::theme(legend.position = "bottom",
-                     legend.title = ggplot2::element_text(face = "bold"),
-                     axis.title.x = ggplot2::element_blank())
-p1$labels$colour <- "Treatment"
-p1$layers[[1]]$aes_params$size <- 8
-p1$layers[[1]]$aes_params$alpha <- 0.75
-  
-p2 <- DESeq2::plotPCA(vsd, intgroup = c("model")) + 
-      ggplot2::theme_bw(base_size = 16) + 
-      ggplot2::coord_cartesian() + 
-      ggplot2::scale_color_manual(values = c("ATRT04" = "#243a76", "ATRT08" = "#096837")) +
-      ggplot2::guides("color" = ggplot2::guide_legend(title = "Model", title.position = "top", title.hjust = 0.5, ncol = 1)) + 
-      ggplot2::theme(legend.position = "bottom",
-                     legend.title = ggplot2::element_text(face = "bold"),
-                     axis.title.y = ggplot2::element_blank(),
-                     axis.text.y = ggplot2::element_blank(),
-                     axis.ticks.y = ggplot2::element_blank())
-p2$labels$colour <- "Model"
-p2$layers[[1]]$aes_params$size <- 8
-p2$layers[[1]]$aes_params$alpha <- 0.75
-
-p3 <- DESeq2::plotPCA(vsd, intgroup = c("replicate")) + 
-      ggplot2::theme_bw(base_size = 16) + 
-      ggplot2::coord_cartesian() + 
-      ggplot2::scale_color_manual(values = stats::setNames(SCpubr::do_ColorPalette("steelblue", opposite = TRUE), levels(dds$replicate))) +
-      ggplot2::guides("color" = ggplot2::guide_legend(title = "Replicate", title.position = "top", title.hjust = 0.5, ncol = 1)) + 
-      ggplot2::theme(legend.position = "bottom",
-                     legend.title = ggplot2::element_text(face = "bold"),
-                     axis.title.y = ggplot2::element_blank(),
-                     axis.text.y = ggplot2::element_blank(),
-                     axis.ticks.y = ggplot2::element_blank(),
-                     axis.title.x = ggplot2::element_blank())
-p3$labels$colour <- "Replicate"
-p3$layers[[1]]$aes_params$size <- 8
-p3$layers[[1]]$aes_params$alpha <- 0.5
-
-p <- p1 | p2 | p3
-
-# Figure S8D ---------
-path.to.activities <- "path_to_activities"
-list.activities <- readRDS(path.to.activities)
-
-path.to.metadata <- "path_to_metadata"
-metadata <- readRDS(path.to.metadata)
-
-list.heatmaps <- list()
-
-activities <- list.activities[["SC_Markers"]]
-  
-colors.use.model <- c("ATRT04" = "#243a76", "ATRT08" = "#096837")
-colors.use.treatment <- SCpubr:::generate_color_scale(c("DMSO", "Entinostat", "RO31", "Thiostrepton"))
-
-
-for (model in c("AT04", "AT08")){
-  
-  act <- activities[stringr::str_detect(activities$condition, model), ]
-  metadata.use <- metadata[stringr::str_detect(metadata$condition, model), c("treatment", "model")]
-  colnames(metadata.use) <- c("Treatment", "Model")
-  
-  acts_wide <- act %>% 
-               tidyr::pivot_wider(id_cols = "condition", names_from = "source", values_from = "score") %>% 
-               tibble::column_to_rownames(var = "condition") %>% 
-               as.matrix() 
-  
-  p <- pheatmap::pheatmap(mat = t(acts_wide),
-                          scale = "row",
-                          cluster_rows = TRUE,
-                          cluster_cols = FALSE,
-                          treeheight_row = 0,
-                          treeheight_col = 0,
-                          fontsize = 16,
-                          annotation_col = metadata.use,
-                          color = grDevices::colorRampPalette(colors = rev(RColorBrewer::brewer.pal("RdBu", n = 11)))(100),
-                          annotation_colors = list("Model" = colors.use.model,
-                                                   "Treatment" = colors.use.treatment),
-                          border_color = "white",
-                          gaps_column = c(2, 4, 6)) %>% 
-     ggplotify::as.ggplot()
-  list.heatmaps[[model]] <- p
-}
-p <- list.heatmaps$AT04 | list.heatmaps$AT08  
 ```

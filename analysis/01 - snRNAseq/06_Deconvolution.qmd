@@ -1,0 +1,116 @@
+# Deconvolution {.unnumbered}
+
+
+```{r}
+library(magrittr)
+
+datasets <- c("H049-031P",
+              "H049-0CWK",
+              "H049-0P37",
+              "H049-33S1",
+              "H049-3NB9",
+              "H049-6V93",
+              "H049-7SD3",
+              "H049-8XZZ",
+              "H049-9U3Q",
+              "H049-B2AZ",
+              "H049-FEGQ",
+              "H049-FG38",
+              "H049-GP41",
+              "H049-GWNW",
+              "H049-HD2A",
+              "H049-JK8Y",
+              "H049-NY74",
+              "H049-PF1J",
+              "H049-Q68V",
+              "H049-SPP6",
+              "H049-T5XL",
+              "H049-V3S3",
+              "H049-WB9V",
+              "H049-WYZN",
+              "H049-X973")
+
+dataset.list <- list()
+path <- ""
+for (name in datasets){
+  filename <- paste0(path, "tumor_", name, ".fpkm_tpm.featureCounts.tsv")
+  file <- readr::read_tsv(filename)
+  dataset.list[[name]] <- file
+}
+
+counts.bulk <- NULL
+
+for (id in datasets){
+  tsv <- dataset.list[[id]]
+  
+  tsv <- tsv %>% 
+         dplyr::select(dplyr::all_of(c("name", "num_reads"))) %>% 
+         dplyr::mutate("ID" = id) %>% 
+         tidyr::pivot_wider(names_from = "ID", values_from = "num_reads", values_fn = sum)
+  
+  if (is.null(counts.bulk)){
+    counts.bulk <- tsv
+  } else {
+    counts.bulk <- counts.bulk %>% dplyr::left_join(y = tsv, by = "name")
+  }
+}
+
+counts.bulk <- counts.bulk %>% tibble::column_to_rownames(var = "name") %>% as.matrix()
+counts.bulk <- counts.bulk[rowSums(counts.bulk) > 0, ]
+
+# Load SC data.
+sample <- readRDS(path.to.SC.data)
+sample$Final_Annotation[sample$Final_Annotation == "Microglia & Immune"] <- "Microglia"
+
+sample[["RNA"]] <- as(object = sample[["RNA"]], Class = "Assay")
+# Annotation labels.
+labels <- sample$Final_Annotation
+
+# HVG.
+hvg <- Seurat::VariableFeatures(sample)
+
+# Markers  
+Seurat::Idents(sample) <- sample$Final_Annotation
+de.results <- COSG::cosg(sample, expressed_pct = 0.5)
+
+markers.list <- lapply(unique(sample$Final_Annotation), function(x){stats::setNames(de.results$scores[[x]], de.results$names[[x]])})
+markers.list <- stats::setNames(markers.list, unique(sample$Final_Annotation))
+
+markers <- NULL
+
+for(x in names(markers.list)){
+  data.use <- markers.list[[x]] %>% as.data.frame()
+  colnames(data.use) <- x
+  data.use <- data.use %>% 
+              tibble::rownames_to_column(var = "gene") %>% 
+              tidyr::pivot_longer(cols = -"gene",
+                                  names_to = "type",
+                                  values_to = "weight")
+  if (is.null(markers)){
+    markers <- data.use
+  } else {
+    markers <- rbind(markers, data.use)
+  }
+}
+
+saveRDS(markers, "/omics/odcf/analysis/hipo/hipo_049/ATRT/ATRT_Publication_GitHub/datasets/ATRT_Deconvolution/deconv_marker_genes_cosg.rds")
+
+
+markers <- Seurat::FindAllMarkers(sample, 
+                                  only.pos = TRUE, 
+                                  logfc.threshold = 0.5,
+                                  min.pct = 0.5,
+                                  test.use = "MAST")
+
+
+# Perform deconvolution.
+deconv <- SPOTlight::SPOTlight(x = sample@assays$RNA@counts,
+                               y = counts.bulk,
+                               groups = as.character(sample$Final_Annotation),
+                               mgs = markers,
+                               hvg = hvg,
+                               gene_id = "gene",
+                               weight_id = "avg_log2FC",
+                               group_id = "cluster")
+```
+

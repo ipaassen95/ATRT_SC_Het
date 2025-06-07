@@ -123,53 +123,14 @@ p <- SCpubr::do_FeaturePlot(sample,
                             legend.position = "bottom")
 
  # Figure S1F ---------                           
-markers <- list("ATRT-TYR" = c("TYR", "MITF", "OTX2"),
-                "ATRT-SHH" = c("HES1", "GLI2", "BOC"),
-                "ATRT-MYC" = c("MYC", "CEBPB", "HOTAIR"))
+markers <- list("ATRT-TYR" = c("TYR", "MITF", "OTX2", "LMX1A", "PRRX1", "MSX2", "BMP4", "PDGFRB"),
+                "ATRT-SHH" = c("HES1", "GLI2", "BOC", "ASCL1", "HES5", "MYCN", "PTCH1", "DTX1", "CBL"),
+                "ATRT-MYC" = c("MYC", "CEBPB", "HOTAIR", "MYO1C"))
 
-p1 <- SCpubr::do_EnrichmentHeatmap(sample, 
-                                   input_gene_list = markers, 
-                                   group.by = "subtype", 
-                                   flip = FALSE, 
-                                   font.size = 16, 
-                                   flavor = "UCell", 
-                                   features.order = c("ATRT-TYR", "ATRT-SHH", "ATRT-MYC"),
-                                   groups.order = list("subtype" = c("ATRT-MYC", "ATRT-SHH", "ATRT-TYR")),
-                                   legend.position = "bottom",
-                                   sequential.palette = "YlOrRd",
-                                   legend.length = 10,
-                                   number.breaks = 5) + 
-      ggplot2::labs(y = "",
-                    x = "Gene set") + 
-      ggplot2::theme(axis.text.y.right = ggplot2::element_blank(),
-                     axis.ticks.y.right = ggplot2::element_blank(),
-                     plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0))
-
-p2 <- SCpubr::do_ExpressionHeatmap(sample, 
-                                   features = markers, 
-                                   group.by = "subtype", 
-                                   flip = FALSE, 
-                                   font.size = 16, 
-                                   features.order = unlist(unname(markers)), 
-                                   legend.position = "bottom",
-                                   legend.length = 10,
-                                   number.breaks = 5,
-                                   groups.order = list("subtype" = c("ATRT-MYC", "ATRT-SHH", "ATRT-TYR"))) + 
-      ggplot2::labs(y = "",
-                    x = "Genes") + 
-      ggplot2::theme(plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0))
-
-layout <- "AAABBBBBBBBB
-           AAABBBBBBBBB
-           AAABBBBBBBBB
-           CCCCCCCCCCCC"
-
-p <- patchwork::wrap_plots(A = p1[[1]], 
-                           B = p2[[1]],
-                           C = patchwork::guide_area(),
-                           design = layout,
-                           guides = "collect") & 
-     patchwork::plot_annotation(theme = ggplot2::theme(legend.position = "bottom"))
+p1 <- SCpubr::do_DotPlot(sample,
+                         features = markers, 
+                         font.size = 16,
+                         group.by = "subtype")
 
 ```
 
