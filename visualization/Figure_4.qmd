@@ -82,8 +82,10 @@ colors.use.reduced <- c("IPC-like"                 = "#be920e",
                         "NPC-like"                 = "#0466c8",
                         "OPC-like"                 = "#0435c8")
 colors.use.model <- c("ATRT04" = "#243a76", "ATRT08" = "#096837")
-colors.use.treatment <- SCpubr:::generate_color_scale(c("DMSO", "Entinostat", "RO31", "Thiostrepton"))
-
+colors.use.treatment <- c("DMSO"         = "#A78A7F",
+                          "Entinostat"   = "#9CA77F",
+                          "RO31"         = "#7F9CA7",
+                          "Thiostrepton" = "#8A7FA7")
 
 p1 <- pheatmap::pheatmap(mat = t(counts.use.04),
                          scale = "column",
@@ -148,8 +150,10 @@ colnames(metadata.04) <- c("Treatment", "Model")
 colnames(metadata.08) <- c("Treatment", "Model")
 
 colors.use.model <- c("ATRT04" = "#243a76", "ATRT08" = "#096837")
-colors.use.treatment <- SCpubr:::generate_color_scale(c("DMSO", "Entinostat", "RO31", "Thiostrepton"))
-
+colors.use.treatment <- c("DMSO"         = "#A78A7F",
+                          "Entinostat"   = "#9CA77F",
+                          "RO31"         = "#7F9CA7",
+                          "Thiostrepton" = "#8A7FA7")
   
   
 p1 <- pheatmap::pheatmap(t(counts.transformed[markers, 1:8]),

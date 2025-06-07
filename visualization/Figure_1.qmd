@@ -48,12 +48,12 @@ technology.colors <- c("10X v3 5'"    = "#005f73",
 tissue.colors <- c("Snap frozen" = "#b15102",
                    "Viably frozen" = "#0262B1")
 
-colors.use <- c("Astrocytes"               = "#BA531CFF",
-                "Neurons"                  = "#787F00FF",
-                "OPC"                      = "#009257FF",
-                "Microglia"                = "#0092AAFF", 
-                "Endothelial"              = "#5E4CCDFF",
-                "Pericytes"                = "#a32978")
+colors.use <- c("Astrocytes"               = "#FED9B7",
+                "Neurons"                  = "#DCFEB7",
+                "OPC"                      = "#B7FED9",
+                "Microglia"                = "#B7DCFE", 
+                "Endothelial"              = "#D9B7FE",
+                "Pericytes"                = "#FEB7DC")
 
 colors.use.tumor <- c("IPC-like"                 = "#be920e",            
                       "CP-like"                  = "#be660e",
@@ -184,7 +184,7 @@ p <- SCpubr::do_DimPlot(sample = sample,
                         pt.size = 8,
                         colors.use = colors.use,
                         legend.icon.size = 8,
-                        legend.ncol = 3,
+                        legend.ncol = 2,
                         na.value = "grey90",
                         legend.position = "bottom",
                         idents.keep = c("Microglia", "Astrocytes", "Neurons", "OPC", "Endothelial", "Pericytes"))

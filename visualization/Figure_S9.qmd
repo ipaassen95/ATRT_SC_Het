@@ -1,93 +1,20 @@
 # Figure S9 {.unnumbered}
-
-
+ 
 ```{r}
-#| results: "asis"
-#| echo: false
-#| eval: false
-source("../_common.R")
-suppressMessages(suppressPackageStartupMessages(library("Seurat")))
-suppressMessages(library("magrittr"))
+# Figure S9C
+
+# Enrique Blanco Carmona
+# e.blancocarmona@kitz-heidelberg.de
+# PhD Student – Clinical Bioinformatics
+# Division of Pediatric Neurooncology (B062)
+# DKFZ-KiTZ | Germany
+
+SCpubr::do_DotPlot(sample, 
+                   features = LMX1A_target_correlation_scores %>% dplyr::filter(.data$correlation >= 0.9) %>% dplyr::pull(.data$gene), 
+                   zscore.data = TRUE, 
+                   cluster = TRUE, 
+                   font.size = 12, 
+                   dot.scale = 6)
 ```
-  
-```{r}
-#| eval: false
-#Organoid figure manuscript 
-
-
-#Figures Supplementary Figure 9 
-#Single-cell organoid data
-
-#Libraries to load
-library(SCpubr)
-library(Seurat)
-library(Signac)
-library(ggplot2)
-library(dplyr)
-
-library(UCell)
-library(AUCell)
-
-#Set to your working directory were your files are 
-setwd("/home/ipaassen/ATRT_sc_atlas/")
-
-#Load organoidseurat object
-organoids <- readRDS("/data/projects/p868_CRISPR-RNA_TP53-RB1/irene/241113_organoids_enrichumapadded.RDS")
-
-#Set colours to use for the
-idents_colors_organoids  <- c("SHH-intermediate" = "#A4C2D6","IPC.like" = "#be920e","OPC.like" = "#0435c8", 'NPC.like' = "#0466c8",  "RG.like" = "#0497c8")
-
-
-# Ready for visualization.
-
-#Figure Supplementary Figure 9
-
-#Panel A
-do_DimPlot(sample, reduction = "umap", group.by = "Enrich.scores",colors.use = idents_colors_organoids)
-
-#Panel B
-do_DimPlot(sample, reduction = "wnn.umap", group.by = "Enrich.scores", colors.use = idents_colors_organoids)
-
-#Panel C
-do_BarPlot(organoids, group.by = "Enrich.scores", split.by = 'sample1',  position = 'fill',colors.use = idents_colors_organoids)
-
-#Panel D
-do_FeaturePlot(sample, features = 'RG.like_scaled', order = T, plot.title = "RG-like")
-
-#Panel E
-do_FeaturePlot(sample, features = 'OPC.like_scaled', order = T, plot.title = "OPC-like")
-
-#Panel F
-do_FeaturePlot(sample, features = 'NPC.like_scaled', order = T, plot.title = "NPC-like")
-
-#Panel G
-do_FeaturePlot(sample, features = 'IPC.like_scaled', order = T, plot.title = "IPC-like")
-
-
-#Calculate IPC percentage (only used in the text)
-ipc.05 <- organoids$Enrich.scores[organoids$sample1 == "ATRT05"]
-table(ipc.05) #from length of ipc.05
-
-ipc.04 <- organoids$Enrich.scores[organoids$sample1 == "ATRT04"]
-table(ipc.04) #from length of ipc.04
-
-ipc.15 <- organoids$Enrich.scores[organoids$sample1 == "ATRT15_ASG3"]
-table(ipc.15) #from length of ipc.15
-
-#Save tsv of RNA and ATAC data
-write.table(Seurat::GetAssayData(organoids, assay = "peaks", slot = "counts"), 
-            col.names = TRUE, 
-            row.names = TRUE, 
-            quote = FALSE, 
-            sep = "\t", 
-            file = gzfile("ATRT_organoids_ATAC_peaks_counts_raw.tsv.gz"))
-
-#Save umap coordinates and metadata files
-data <- sample@meta.data %>% 
-  tibble::rownames_to_column(var = "Cell") %>% 
-  dplyr::left_join(y = sample@reductions$umap_unintegrated@cell.embeddings %>% as.data.frame() %>% tibble::rownames_to_column(var = "Cell"),
-                   by = "Cell") %>%  
-  dplyr::left_join(y = sample@reductions$umap.harmony@cell.embeddings %>% as.data.frame() %>% tibble::rownames_to_column(var = "Cell"),
-                   by = "Cell")
-
-```
+ 
+ 

@@ -13,6 +13,11 @@ suppressMessages(library("magrittr"))
 
 ```{r}
 #| eval: false
+# Enrique Blanco Carmona
+# e.blancocarmona@kitz-heidelberg.de
+# PhD Student – Clinical Bioinformatics
+# Division of Pediatric Neurooncology (B062)
+# DKFZ-KiTZ | Germany
 
 # Overarching Seurat object.
 path.to.sample <- "path_to_snRNAseq_sample_with_dimensional_reduction_enrichment"
@@ -119,7 +124,11 @@ p <- SCpubr::do_ExpressionHeatmap(sample = sample,
                                   group.by = c("enrichment_clusters", "harmony_clusters", "ID", "Annotation"),
                                   flip = TRUE,
                                   font.size = 12,
-                                  legend.title = "UCell score")
+                                  legend.title = "UCell score", 
+                                  slot = "scale.data", 
+                                  enforce_symmetry = TRUE, 
+                                  max.cutoff = 3, 
+                                  min.cutoff = -3)
 p[[1]]$labels$x <- "Enrichment-based clusters"
 p[[1]]$labels$y <- "Gene sets"
 p[[2]]$labels$x <- "Integration-based clusters"
@@ -182,6 +191,960 @@ p <- SCpubr::do_BarPlot(sample.use,
                         xlab = "")
 
 
+# Figure S2F ---------
+
+sample <- readRDS(path.to.snRNAseq.sample)
+sample$Final_Annotation[sample$Final_Annotation == "Microglia & Immune"] <- "Microglia"
+sample$Final_Annotation[sample$Final_Annotation %in% c("NMF-MP2",
+                                                       "NMF-MP3",
+                                                       "NMF-MP5",
+                                                       "NMF-MP8",
+                                                       "SHH-1",
+                                                       "SHH-2",
+                                                       "SHH-3",
+                                                       "MYC-1",
+                                                       "Unannotated")] <- "Unannotated"
+# -	Add proportions of each tumor cell populations across all patients.
+
+
+
+`%>%` <- magrittr::`%>%`
+`:=` <- rlang::`:=`
+
+font.size = 16
+font.type = "sans"
+plot.title.face = "bold"
+plot.subtitle.face = "plain"
+plot.caption.face = "italic"
+axis.title.face = "bold"
+axis.text.face = "plain"
+grid.color = "white"
+border.color = "black"
+axis.text.x.angle = 45
+
+group.by <- "Final_Annotation"
+split.by <- "ID"
+facet.by <- "subtype"
+flip <- FALSE
+
+prop <- SCpubr::do_BarPlot(sample = sample,
+                           group.by = group.by,
+                           split.by = split.by,
+                           position = "fill",
+                           return_data = TRUE)$Data
+
+# Clustering.
+# Transform to wide to retrieve the hclust.
+df.order <- prop %>%
+            dplyr::select(-dplyr::all_of(c("n"))) %>% 
+            tidyr::pivot_wider(id_cols = group.by,
+                               names_from = split.by,
+                               values_from = "freq") %>%
+            tibble::column_to_rownames(group.by) %>%
+            as.matrix()
+df.order[is.na(df.order)] <- 0
+
+col_order <- colnames(df.order)[stats::hclust(stats::dist(t(df.order), method = "euclidean"), method = "ward.D")$order]
+row_order <- c("Astrocytes",
+               "Endothelial",
+               "Microglia",
+               "Neurons",
+               "OPC",
+               "Pericytes",
+               
+               "IPC-like",
+               "CP-like",
+               "Cilia-like",
+               "RG-like",
+               "OPC-like",
+               "NPC-like",
+               "Mesenchymal-like",
+               "Immune-like",
+               "Hypoxic",
+               "Unannotated")
+
+
+colors.gradient <- SCpubr:::compute_continuous_palette(name = "YlGnBu",
+                                                       use_viridis = FALSE,
+                                                       direction = 1,
+                                                       enforce_symmetry = FALSE)
+
+colors.gradient.count <- SCpubr:::compute_continuous_palette(name = "YlOrBr",
+                                                             use_viridis = FALSE,
+                                                             direction = 1,
+                                                             enforce_symmetry = FALSE)
+
+
+prop <- prop %>% 
+        dplyr::mutate("{group.by}" := factor(.data[[group.by]], levels = row_order),
+                      "{split.by}" := factor(.data[[split.by]], levels = col_order),
+                      "freq" = .data$freq * 100,
+                      "Class" = ifelse(.data[[group.by]] %in% c("Astrocytes",
+                                                                "Endothelial",
+                                                                "Microglia",
+                                                                "Neurons",
+                                                                "OPC",
+                                                                "Pericytes"), "TME", "Tumor")) %>% 
+        dplyr::left_join(y = {sample@meta.data %>% 
+                              dplyr::select(dplyr::all_of(c("ID", "subtype"))) %>% 
+                              dplyr::group_by(ID) %>% 
+                              dplyr::summarise("subtype" = unique(.data$subtype))})
+
+list.heatmaps.tme <- list()
+list.heatmaps.tumor <- list()
+list.heatmaps.prop <- list()
+metadata <- rev(c("ATRT-TYR", "ATRT-SHH", "ATRT-MYC"))
+counter <- 0
+for (name in metadata){
+  counter <- counter + 1
+  
+  axis.parameters <- SCpubr:::handle_axis(flip = flip,
+                                          group.by = rep("A", length(unique(sample$Final_Annotation))),
+                                          group = name,
+                                          counter = counter,
+                                          axis.text.x.angle = axis.text.x.angle,
+                                          plot.title.face = plot.title.face,
+                                          plot.subtitle.face = plot.subtitle.face,
+                                          plot.caption.face = plot.caption.face,
+                                          axis.title.face = axis.title.face,
+                                          axis.text.face = axis.text.face,
+                                          legend.title.face = "bold",
+                                          legend.text.face = "plain")
+  
+  p <- prop %>% 
+       dplyr::filter(.data$subtype == name,
+                     .data$Final_Annotation %in% c("Astrocytes",
+                                                   "Endothelial",
+                                                   "Microglia",
+                                                   "Neurons",
+                                                   "OPC",
+                                                   "Pericytes")) %>% 
+       ggplot2::ggplot(mapping = ggplot2::aes(x = if(base::isFALSE(flip)){.data[[group.by]]} else {.data[[split.by]]},
+                                              y = if(base::isFALSE(flip)){.data[[split.by]]} else {.data[[group.by]]},
+                                              fill = .data$freq)) + 
+       ggplot2::geom_tile(color = "white", linewidth = 0.5) +
+       ggplot2::geom_text(ggplot2::aes(label = round(.data$freq, 1), 
+                                       color = ifelse(.data$freq > 50, "white", "black")), 
+                          size = 3.75) +
+       ggplot2::scale_y_discrete(expand = c(0, 0)) +
+       ggplot2::scale_x_discrete(expand = c(0, 0),
+                                 position = "top") +
+       ggplot2::guides(y.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[split.by]]))),
+                       x.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[group.by]])))) + 
+       ggplot2::coord_equal() +
+       ggplot2::scale_color_identity() + 
+       ggplot2::scale_fill_gradientn(colors = colors.gradient,
+                                     na.value = "grey75",
+                                     name = "Percentage",
+                                     breaks = c(0, 25, 50, 75, 100),
+                                     labels = c("0", "25", "50", "75", "100"),
+                                     limits = c(0, 100)) + 
+       ggplot2::xlab(NULL) +
+       ggplot2::ylab(NULL) +
+       ggplot2::theme_minimal(base_size = font.size) +
+       ggplot2::theme(axis.ticks.x.bottom = axis.parameters$axis.ticks.x.bottom,
+                      axis.ticks.x.top = axis.parameters$axis.ticks.x.top,
+                      axis.ticks.y.left = axis.parameters$axis.ticks.y.left,
+                      axis.ticks.y.right = ggplot2::element_blank(),
+                      axis.text.y.left = axis.parameters$axis.text.y.left,
+                      axis.text.y.right = ggplot2::element_blank(),
+                      axis.text.x.top = axis.parameters$axis.text.x.top,
+                      axis.text.x.bottom = axis.parameters$axis.text.x.bottom,
+                      axis.title.x.bottom = axis.parameters$axis.title.x.bottom,
+                      axis.title.x.top = axis.parameters$axis.title.x.top,
+                      axis.title.y.right = ggplot2::element_blank(),
+                      axis.title.y.left = axis.parameters$axis.title.y.left,
+                      strip.background = axis.parameters$strip.background,
+                      strip.clip = axis.parameters$strip.clip,
+                      strip.text = axis.parameters$strip.text,
+                      legend.position = "bottom",
+                      axis.line = ggplot2::element_blank(),
+                      plot.title = ggplot2::element_text(face = plot.title.face, hjust = 0),
+                      plot.subtitle = ggplot2::element_text(face = plot.subtitle.face, hjust = 0),
+                      plot.caption = ggplot2::element_text(face = plot.caption.face, hjust = 1),
+                      plot.title.position = "plot",
+                      panel.grid = ggplot2::element_blank(),
+                      panel.grid.minor.y = ggplot2::element_line(color = "white", linewidth = 1),
+                      text = ggplot2::element_text(family = font.type),
+                      plot.caption.position = "plot",
+                      legend.text = ggplot2::element_text(face = "plain", size = font.size),
+                      legend.title = ggplot2::element_text(face = "bold", size = font.size),
+                      legend.justification = "center",
+                      plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0, unit = "mm"),
+                      panel.border = ggplot2::element_rect(fill = NA, color = border.color, linewidth = 1),
+                      panel.grid.major = ggplot2::element_blank(),
+                      plot.background = ggplot2::element_rect(fill = "white", color = "white"),
+                      panel.background = ggplot2::element_rect(fill = "white", color = "white"),
+                      legend.background = ggplot2::element_rect(fill = "white", color = "white"),
+                      legend.spacing = ggplot2::unit(0, "cm"),
+                      panel.spacing.x = ggplot2::unit(0, "cm"),
+                      panel.spacing.y = ggplot2::unit(0, "cm"))
+  
+  p <- SCpubr:::modify_continuous_legend(p = p,
+                                         legend.title = "Percentage",
+                                         legend.aes = "fill",
+                                         legend.type = "colorbar",
+                                         legend.position = "bottom",
+                                         legend.width = 1,
+                                         legend.length = 12.5,
+                                         legend.framewidth = 0.5,
+                                         legend.tickwidth = 0.5,
+                                         legend.framecolor = "grey50",
+                                         legend.tickcolor = "white")
+  
+  list.heatmaps.tme[[name]] <- p
+  
+  p <- prop %>% 
+       dplyr::filter(.data$subtype == name,
+                     !(.data$Final_Annotation %in% c("Astrocytes",
+                                                   "Endothelial",
+                                                   "Microglia",
+                                                   "Neurons",
+                                                   "OPC",
+                                                   "Pericytes"))) %>% 
+       ggplot2::ggplot(mapping = ggplot2::aes(x = if(base::isFALSE(flip)){.data[[group.by]]} else {.data[[split.by]]},
+                                              y = if(base::isFALSE(flip)){.data[[split.by]]} else {.data[[group.by]]},
+                                              fill = .data$freq)) + 
+       ggplot2::geom_tile(color = "white", linewidth = 0.5) +
+       ggplot2::geom_text(ggplot2::aes(label = round(.data$freq, 1), 
+                                       color = ifelse(.data$freq > 50, "white", "black")), 
+                          size = 3.75) +
+       ggplot2::scale_y_discrete(expand = c(0, 0)) +
+       ggplot2::scale_x_discrete(expand = c(0, 0),
+                                 position = "top") +
+       ggplot2::guides(y.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[split.by]]))),
+                       x.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[group.by]])))) + 
+       ggplot2::coord_equal() +
+       ggplot2::scale_color_identity() + 
+       ggplot2::scale_fill_gradientn(colors = colors.gradient,
+                                     na.value = "grey75",
+                                     name = "Percentage",
+                                     breaks = c(0, 25, 50, 75, 100),
+                                     labels = c("0", "25", "50", "75", "100"),
+                                     limits = c(0, 100)) + 
+       ggplot2::xlab(NULL) +
+       ggplot2::ylab(NULL) +
+       ggplot2::theme_minimal(base_size = font.size) +
+       ggplot2::theme(axis.ticks.x.bottom = axis.parameters$axis.ticks.x.bottom,
+                      axis.ticks.x.top = axis.parameters$axis.ticks.x.top,
+                      axis.ticks.y.left = ggplot2::element_blank(),
+                      axis.ticks.y.right = axis.parameters$axis.ticks.y.right,
+                      axis.text.y.left = ggplot2::element_blank(),
+                      axis.text.y.right = axis.parameters$axis.text.y.right,
+                      axis.text.x.top = axis.parameters$axis.text.x.top,
+                      axis.text.x.bottom = axis.parameters$axis.text.x.bottom,
+                      axis.title.x.bottom = axis.parameters$axis.title.x.bottom,
+                      axis.title.x.top = axis.parameters$axis.title.x.top,
+                      axis.title.y.right = axis.parameters$axis.title.y.right,
+                      axis.title.y.left = ggplot2::element_blank(),
+                      strip.background = axis.parameters$strip.background,
+                      strip.clip = axis.parameters$strip.clip,
+                      strip.text = axis.parameters$strip.text,
+                      legend.position = "bottom",
+                      axis.line = ggplot2::element_blank(),
+                      plot.title = ggplot2::element_text(face = plot.title.face, hjust = 0),
+                      plot.subtitle = ggplot2::element_text(face = plot.subtitle.face, hjust = 0),
+                      plot.caption = ggplot2::element_text(face = plot.caption.face, hjust = 1),
+                      plot.title.position = "plot",
+                      panel.grid = ggplot2::element_blank(),
+                      panel.grid.minor.y = ggplot2::element_line(color = "white", linewidth = 1),
+                      text = ggplot2::element_text(family = font.type),
+                      plot.caption.position = "plot",
+                      legend.text = ggplot2::element_text(face = "plain", size = font.size),
+                      legend.title = ggplot2::element_text(face = "bold", size = font.size),
+                      legend.justification = "center",
+                      plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0, unit = "mm"),
+                      panel.border = ggplot2::element_rect(fill = NA, color = border.color, linewidth = 1),
+                      panel.grid.major = ggplot2::element_blank(),
+                      plot.background = ggplot2::element_rect(fill = "white", color = "white"),
+                      panel.background = ggplot2::element_rect(fill = "white", color = "white"),
+                      legend.background = ggplot2::element_rect(fill = "white", color = "white"),
+                      legend.spacing = ggplot2::unit(0, "cm"),
+                      panel.spacing.x = ggplot2::unit(0, "cm"),
+                      panel.spacing.y = ggplot2::unit(0, "cm"))
+  
+  
+  p <- SCpubr:::modify_continuous_legend(p = p,
+                                         legend.title = "Percentage",
+                                         legend.aes = "fill",
+                                         legend.type = "colorbar",
+                                         legend.position = "bottom",
+                                         legend.width = 1,
+                                         legend.length = 12.5,
+                                         legend.framewidth = 0.5,
+                                         legend.tickwidth = 0.5,
+                                         legend.framecolor = "grey50",
+                                         legend.tickcolor = "white")
+  
+  list.heatmaps.tumor[[name]] <- p
+  
+  
+  
+  
+  # Heatmap with tumor/tme proportions.
+  
+  data.use <- prop %>% 
+              dplyr::select(dplyr::all_of(c(split.by, "subtype", "Class", "freq"))) %>% 
+              dplyr::group_by(Class, .data[[split.by]]) %>% 
+              dplyr::summarise("Combfreq" = sum(.data$freq),
+                               "subtype" = unique(.data$subtype))
+
+  
+  p <- data.use %>% 
+      dplyr::filter(.data$subtype == name,) %>% 
+      ggplot2::ggplot(mapping = ggplot2::aes(x = .data$Class,
+                                             y = .data[[split.by]],
+                                             fill = .data$Combfreq)) + 
+      ggplot2::geom_tile(color = "white", linewidth = 0.5) +
+      ggplot2::geom_text(ggplot2::aes(label = round(.data$Combfreq, 1), 
+                                      color = ifelse(.data$Combfreq > 50, "white", "black")), 
+                         size = 3.75) +
+      ggplot2::scale_y_discrete(expand = c(0, 0)) +
+      ggplot2::scale_x_discrete(expand = c(0, 0),
+                                position = "top") +
+      ggplot2::guides(y.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[split.by]]))),
+                      x.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[group.by]])))) + 
+      ggplot2::coord_equal() +
+      ggplot2::scale_color_identity() + 
+      ggplot2::scale_fill_gradientn(colors = colors.gradient,
+                                    na.value = "grey75",
+                                    name = "Percentage",
+                                    breaks = c(0, 25, 50, 75, 100),
+                                    labels = c("0", "25", "50", "75", "100"),
+                                    limits = c(0, 100)) + 
+      ggplot2::xlab(NULL) +
+      ggplot2::ylab(name) +
+      ggplot2::theme_minimal(base_size = font.size) +
+      ggplot2::theme(axis.ticks.x.bottom = axis.parameters$axis.ticks.x.bottom,
+                     axis.ticks.x.top = axis.parameters$axis.ticks.x.top,
+                     axis.ticks.y.left = ggplot2::element_blank(),
+                     axis.ticks.y.right = ggplot2::element_blank(),
+                     axis.text.y.left = ggplot2::element_blank(),
+                     axis.text.y.right = ggplot2::element_blank(),
+                     axis.text.x.top = axis.parameters$axis.text.x.top,
+                     axis.text.x.bottom = axis.parameters$axis.text.x.bottom,
+                     axis.title.x.bottom = axis.parameters$axis.title.x.bottom,
+                     axis.title.x.top = axis.parameters$axis.title.x.top,
+                     axis.title.y.right = ggplot2::element_blank(),
+                     axis.title.y.left = axis.parameters$axis.title.y.left,
+                     strip.background = axis.parameters$strip.background,
+                     strip.clip = axis.parameters$strip.clip,
+                     strip.text = axis.parameters$strip.text,
+                     legend.position = "bottom",
+                     axis.line = ggplot2::element_blank(),
+                     plot.title = ggplot2::element_text(face = plot.title.face, hjust = 0),
+                     plot.subtitle = ggplot2::element_text(face = plot.subtitle.face, hjust = 0),
+                     plot.caption = ggplot2::element_text(face = plot.caption.face, hjust = 1),
+                     plot.title.position = "plot",
+                     panel.grid = ggplot2::element_blank(),
+                     panel.grid.minor.y = ggplot2::element_line(color = "white", linewidth = 1),
+                     text = ggplot2::element_text(family = font.type),
+                     plot.caption.position = "plot",
+                     legend.text = ggplot2::element_text(face = "plain", size = font.size),
+                     legend.title = ggplot2::element_text(face = "bold", size = font.size),
+                     legend.justification = "center",
+                     plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0, unit = "mm"),
+                     panel.border = ggplot2::element_rect(fill = NA, color = border.color, linewidth = 1),
+                     panel.grid.major = ggplot2::element_blank(),
+                     plot.background = ggplot2::element_rect(fill = "white", color = "white"),
+                     panel.background = ggplot2::element_rect(fill = "white", color = "white"),
+                     legend.background = ggplot2::element_rect(fill = "white", color = "white"),
+                     legend.spacing = ggplot2::unit(0, "cm"),
+                     panel.spacing.x = ggplot2::unit(0, "cm"),
+                     panel.spacing.y = ggplot2::unit(0, "cm"))
+  
+  
+  p <- SCpubr:::modify_continuous_legend(p = p,
+                                         legend.title = "Percentage",
+                                         legend.aes = "fill",
+                                         legend.type = "colorbar",
+                                         legend.position = "bottom",
+                                         legend.width = 1,
+                                         legend.length = 12.5,
+                                         legend.framewidth = 0.5,
+                                         legend.tickwidth = 0.5,
+                                         legend.framecolor = "grey50",
+                                         legend.tickcolor = "white")
+  list.heatmaps.prop[[name]] <- p
+}
+
+
+list.heatmaps.range <- list()
+# Ranges heatmap.
+data.use <- prop %>% 
+            dplyr::select(dplyr::all_of(c(group.by, split.by, "freq"))) %>% 
+            dplyr::filter(.data$Final_Annotation %in% c("Astrocytes",
+                                                        "Endothelial",
+                                                        "Microglia",
+                                                        "Neurons",
+                                                        "OPC",
+                                                        "Pericytes")) %>% 
+            dplyr::mutate("Count" = ifelse(.data$freq > 0, 1, 0)) %>% 
+            dplyr::group_by(.data[[group.by]]) %>% 
+  dplyr::summarise("Maximum Frequency" = max(.data$freq),
+                   "Minimum Frequency" = min(.data$freq))
+
+p <- data.use %>%
+  tidyr::pivot_longer(cols = -"Final_Annotation",
+                      names_to = "Var",
+                      values_to = "Value") %>% 
+  ggplot2::ggplot(mapping = ggplot2::aes(x = .data[[group.by]],
+                                         y = .data$Var,
+                                         fill = .data$Value)) + 
+  ggplot2::geom_tile(color = "white", linewidth = 0.5) +
+  ggplot2::geom_text(ggplot2::aes(label = round(.data$Value, 1), 
+                                  color = ifelse(.data$Value > 50, "white", "black")), 
+                     size = 3.75) +
+  ggplot2::scale_y_discrete(expand = c(0, 0)) +
+  ggplot2::scale_x_discrete(expand = c(0, 0),
+                            position = "top") +
+  ggplot2::guides(y.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[split.by]]))),
+                  x.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[group.by]])))) + 
+  ggplot2::coord_equal() +
+  ggplot2::scale_color_identity() + 
+  ggplot2::scale_fill_gradientn(colors = colors.gradient,
+                                na.value = "grey75",
+                                name = "Percentage",
+                                breaks = c(0, 25, 50, 75, 100),
+                                labels = c("0", "25", "50", "75", "100"),
+                                limits = c(0, 100)) + 
+  ggplot2::xlab(NULL) +
+  ggplot2::ylab(NULL) +
+  ggplot2::theme_minimal(base_size = font.size) +
+  ggplot2::theme(axis.ticks.x.bottom = axis.parameters$axis.ticks.x.bottom,
+                 axis.ticks.x.top = axis.parameters$axis.ticks.x.top,
+                 axis.ticks.y.left = ggplot2::element_blank(),
+                 axis.ticks.y.right = ggplot2::element_blank(),
+                 axis.text.y.left = ggplot2::element_blank(),
+                 axis.text.y.right = ggplot2::element_blank(),
+                 axis.text.x.top = axis.parameters$axis.text.x.top,
+                 axis.text.x.bottom = axis.parameters$axis.text.x.bottom,
+                 axis.title.x.bottom = axis.parameters$axis.title.x.bottom,
+                 axis.title.x.top = axis.parameters$axis.title.x.top,
+                 axis.title.y.right = ggplot2::element_blank(),
+                 axis.title.y.left = axis.parameters$axis.title.y.left,
+                 strip.background = axis.parameters$strip.background,
+                 strip.clip = axis.parameters$strip.clip,
+                 strip.text = axis.parameters$strip.text,
+                 legend.position = "bottom",
+                 axis.line = ggplot2::element_blank(),
+                 plot.title = ggplot2::element_text(face = plot.title.face, hjust = 0),
+                 plot.subtitle = ggplot2::element_text(face = plot.subtitle.face, hjust = 0),
+                 plot.caption = ggplot2::element_text(face = plot.caption.face, hjust = 1),
+                 plot.title.position = "plot",
+                 panel.grid = ggplot2::element_blank(),
+                 panel.grid.minor.y = ggplot2::element_line(color = "white", linewidth = 1),
+                 text = ggplot2::element_text(family = font.type),
+                 plot.caption.position = "plot",
+                 legend.text = ggplot2::element_text(face = "plain", size = font.size),
+                 legend.title = ggplot2::element_text(face = "bold", size = font.size),
+                 legend.justification = "center",
+                 plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0, unit = "mm"),
+                 panel.border = ggplot2::element_rect(fill = NA, color = border.color, linewidth = 1),
+                 panel.grid.major = ggplot2::element_blank(),
+                 plot.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 panel.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.spacing = ggplot2::unit(0, "cm"),
+                 panel.spacing.x = ggplot2::unit(0, "cm"),
+                 panel.spacing.y = ggplot2::unit(0, "cm"))
+
+
+p <- SCpubr:::modify_continuous_legend(p = p,
+                                       legend.title = "Percentage",
+                                       legend.aes = "fill",
+                                       legend.type = "colorbar",
+                                       legend.position = "bottom",
+                                       legend.width = 1,
+                                       legend.length = 12.5,
+                                       legend.framewidth = 0.5,
+                                       legend.tickwidth = 0.5,
+                                       legend.framecolor = "grey50",
+                                       legend.tickcolor = "white")
+
+list.heatmaps.range[["TME"]] <- p 
+
+data.use <- prop %>% 
+  dplyr::select(dplyr::all_of(c(group.by, split.by, "freq"))) %>% 
+  dplyr::filter(!(.data$Final_Annotation %in% c("Astrocytes",
+                                              "Endothelial",
+                                              "Microglia",
+                                              "Neurons",
+                                              "OPC",
+                                              "Pericytes"))) %>% 
+  dplyr::mutate("Count" = ifelse(.data$freq > 0, 1, 0)) %>% 
+  dplyr::group_by(.data[[group.by]]) %>% 
+  dplyr::summarise("Maximum Frequency" = max(.data$freq),
+                   "Minimum Frequency" = min(.data$freq))
+
+p <- data.use %>%
+  tidyr::pivot_longer(cols = -"Final_Annotation",
+                      names_to = "Var",
+                      values_to = "Value") %>% 
+  ggplot2::ggplot(mapping = ggplot2::aes(x = .data[[group.by]],
+                                         y = .data$Var,
+                                         fill = .data$Value)) + 
+  ggplot2::geom_tile(color = "white", linewidth = 0.5) +
+  ggplot2::geom_text(ggplot2::aes(label = round(.data$Value, 1), 
+                                  color = ifelse(.data$Value > 50, "white", "black")), 
+                     size = 3.75) +
+  ggplot2::scale_y_discrete(expand = c(0, 0)) +
+  ggplot2::scale_x_discrete(expand = c(0, 0),
+                            position = "top") +
+  ggplot2::guides(y.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[split.by]]))),
+                  x.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[group.by]])))) + 
+  ggplot2::coord_equal() +
+  ggplot2::scale_color_identity() + 
+  ggplot2::scale_fill_gradientn(colors = colors.gradient,
+                                na.value = "grey75",
+                                name = "Percentage",
+                                breaks = c(0, 25, 50, 75, 100),
+                                labels = c("0", "25", "50", "75", "100"),
+                                limits = c(0, 100)) + 
+  ggplot2::xlab(NULL) +
+  ggplot2::ylab(NULL) +
+  ggplot2::theme_minimal(base_size = font.size) +
+  ggplot2::theme(axis.ticks.x.bottom = axis.parameters$axis.ticks.x.bottom,
+                 axis.ticks.x.top = axis.parameters$axis.ticks.x.top,
+                 axis.ticks.y.left = ggplot2::element_blank(),
+                 axis.ticks.y.right = ggplot2::element_line(color = "black"),
+                 axis.text.y.left = ggplot2::element_blank(),
+                 axis.text.y.right = ggplot2::element_text(color = "black"),
+                 axis.text.x.top = axis.parameters$axis.text.x.top,
+                 axis.text.x.bottom = axis.parameters$axis.text.x.bottom,
+                 axis.title.x.bottom = axis.parameters$axis.title.x.bottom,
+                 axis.title.x.top = axis.parameters$axis.title.x.top,
+                 axis.title.y.right = ggplot2::element_blank(),
+                 axis.title.y.left = axis.parameters$axis.title.y.left,
+                 strip.background = axis.parameters$strip.background,
+                 strip.clip = axis.parameters$strip.clip,
+                 strip.text = axis.parameters$strip.text,
+                 legend.position = "bottom",
+                 axis.line = ggplot2::element_blank(),
+                 plot.title = ggplot2::element_text(face = plot.title.face, hjust = 0),
+                 plot.subtitle = ggplot2::element_text(face = plot.subtitle.face, hjust = 0),
+                 plot.caption = ggplot2::element_text(face = plot.caption.face, hjust = 1),
+                 plot.title.position = "plot",
+                 panel.grid = ggplot2::element_blank(),
+                 panel.grid.minor.y = ggplot2::element_line(color = "white", linewidth = 1),
+                 text = ggplot2::element_text(family = font.type),
+                 plot.caption.position = "plot",
+                 legend.text = ggplot2::element_text(face = "plain", size = font.size),
+                 legend.title = ggplot2::element_text(face = "bold", size = font.size),
+                 legend.justification = "center",
+                 plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0, unit = "mm"),
+                 panel.border = ggplot2::element_rect(fill = NA, color = border.color, linewidth = 1),
+                 panel.grid.major = ggplot2::element_blank(),
+                 plot.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 panel.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.spacing = ggplot2::unit(0, "cm"),
+                 panel.spacing.x = ggplot2::unit(0, "cm"),
+                 panel.spacing.y = ggplot2::unit(0, "cm"))
+
+
+p <- SCpubr:::modify_continuous_legend(p = p,
+                                       legend.title = "Percentage",
+                                       legend.aes = "fill",
+                                       legend.type = "colorbar",
+                                       legend.position = "bottom",
+                                       legend.width = 1,
+                                       legend.length = 12.5,
+                                       legend.framewidth = 0.5,
+                                       legend.tickwidth = 0.5,
+                                       legend.framecolor = "grey50",
+                                       legend.tickcolor = "white")
+
+list.heatmaps.range[["Tumor"]] <- p 
+
+
+data.use <- prop %>% 
+            dplyr::select(dplyr::all_of(c(split.by, "subtype", "Class", "freq"))) %>% 
+            dplyr::group_by(Class, .data[[split.by]]) %>% 
+            dplyr::summarise("Combfreq" = sum(.data$freq),
+                             "subtype" = unique(.data$subtype)) %>% 
+            dplyr::mutate("Count" = ifelse(.data$Combfreq > 0, 1, 0)) %>% 
+            dplyr::group_by(.data$Class) %>% 
+            dplyr::summarise("Maximum Frequency" = max(.data$Combfreq),
+                             "Minimum Frequency" = min(.data$Combfreq))
+
+p <- data.use %>%
+  tidyr::pivot_longer(cols = -"Class",
+                      names_to = "Var",
+                      values_to = "Value") %>% 
+  ggplot2::ggplot(mapping = ggplot2::aes(x = .data$Class,
+                                         y = .data$Var,
+                                         fill = .data$Value)) + 
+  ggplot2::geom_tile(color = "white", linewidth = 0.5) +
+  ggplot2::geom_text(ggplot2::aes(label = round(.data$Value, 1), 
+                                  color = ifelse(.data$Value > 50, "white", "black")), 
+                     size = 3.75) +
+  ggplot2::scale_y_discrete(expand = c(0, 0)) +
+  ggplot2::scale_x_discrete(expand = c(0, 0),
+                            position = "top") +
+  ggplot2::guides(y.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[split.by]]))),
+                  x.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[group.by]])))) + 
+  ggplot2::coord_equal() +
+  ggplot2::scale_color_identity() + 
+  ggplot2::scale_fill_gradientn(colors = colors.gradient,
+                                na.value = "grey75",
+                                name = "Percentage",
+                                breaks = c(0, 25, 50, 75, 100),
+                                labels = c("0", "25", "50", "75", "100"),
+                                limits = c(0, 100)) + 
+  ggplot2::xlab(NULL) +
+  ggplot2::ylab(NULL) +
+  ggplot2::theme_minimal(base_size = font.size) +
+  ggplot2::theme(axis.ticks.x.bottom = axis.parameters$axis.ticks.x.bottom,
+                 axis.ticks.x.top = axis.parameters$axis.ticks.x.top,
+                 axis.ticks.y.left = ggplot2::element_blank(),
+                 axis.ticks.y.right = ggplot2::element_blank(),
+                 axis.text.y.left = ggplot2::element_blank(),
+                 axis.text.y.right = ggplot2::element_blank(),
+                 axis.text.x.top = axis.parameters$axis.text.x.top,
+                 axis.text.x.bottom = axis.parameters$axis.text.x.bottom,
+                 axis.title.x.bottom = axis.parameters$axis.title.x.bottom,
+                 axis.title.x.top = axis.parameters$axis.title.x.top,
+                 axis.title.y.right = ggplot2::element_blank(),
+                 axis.title.y.left = axis.parameters$axis.title.y.left,
+                 strip.background = axis.parameters$strip.background,
+                 strip.clip = axis.parameters$strip.clip,
+                 strip.text = axis.parameters$strip.text,
+                 legend.position = "bottom",
+                 axis.line = ggplot2::element_blank(),
+                 plot.title = ggplot2::element_text(face = plot.title.face, hjust = 0),
+                 plot.subtitle = ggplot2::element_text(face = plot.subtitle.face, hjust = 0),
+                 plot.caption = ggplot2::element_text(face = plot.caption.face, hjust = 1),
+                 plot.title.position = "plot",
+                 panel.grid = ggplot2::element_blank(),
+                 panel.grid.minor.y = ggplot2::element_line(color = "white", linewidth = 1),
+                 text = ggplot2::element_text(family = font.type),
+                 plot.caption.position = "plot",
+                 legend.text = ggplot2::element_text(face = "plain", size = font.size),
+                 legend.title = ggplot2::element_text(face = "bold", size = font.size),
+                 legend.justification = "center",
+                 plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0, unit = "mm"),
+                 panel.border = ggplot2::element_rect(fill = NA, color = border.color, linewidth = 1),
+                 panel.grid.major = ggplot2::element_blank(),
+                 plot.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 panel.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.spacing = ggplot2::unit(0, "cm"),
+                 panel.spacing.x = ggplot2::unit(0, "cm"),
+                 panel.spacing.y = ggplot2::unit(0, "cm"))
+
+
+p <- SCpubr:::modify_continuous_legend(p = p,
+                                       legend.title = "Percentage",
+                                       legend.aes = "fill",
+                                       legend.type = "colorbar",
+                                       legend.position = "bottom",
+                                       legend.width = 1,
+                                       legend.length = 12.5,
+                                       legend.framewidth = 0.5,
+                                       legend.tickwidth = 0.5,
+                                       legend.framecolor = "grey50",
+                                       legend.tickcolor = "white")
+
+list.heatmaps.range[["Fraction"]] <- p 
+
+
+# Present in patients.
+list.heatmaps.count <- list()
+data.use <- prop %>% 
+  dplyr::select(dplyr::all_of(c(group.by, split.by, "freq"))) %>% 
+  dplyr::filter(.data$Final_Annotation %in% c("Astrocytes",
+                                              "Endothelial",
+                                              "Microglia",
+                                              "Neurons",
+                                              "OPC",
+                                              "Pericytes")) %>% 
+  dplyr::mutate("Count" = ifelse(.data$freq > 0, 1, 0)) %>% 
+  dplyr::group_by(.data[[group.by]]) %>% 
+  dplyr::summarise("Present in patients" = sum(.data$Count))
+
+p <- data.use %>%
+  tidyr::pivot_longer(cols = -"Final_Annotation",
+                      names_to = "Var",
+                      values_to = "Value") %>% 
+  ggplot2::ggplot(mapping = ggplot2::aes(x = .data[[group.by]],
+                                         y = .data$Var,
+                                         fill = .data$Value)) + 
+  ggplot2::geom_tile(color = "white", linewidth = 0.5) +
+  ggplot2::geom_text(ggplot2::aes(label = round(.data$Value, 1), 
+                                  color = ifelse(.data$Value > 13, "white", "black")), 
+                     size = 3.75) +
+  ggplot2::scale_y_discrete(expand = c(0, 0)) +
+  ggplot2::scale_x_discrete(expand = c(0, 0),
+                            position = "top") +
+  ggplot2::guides(y.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[split.by]]))),
+                  x.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[group.by]])))) + 
+  ggplot2::coord_equal() +
+  ggplot2::scale_color_identity() + 
+  ggplot2::scale_fill_gradientn(colors = colors.gradient.count,
+                                na.value = "grey75",
+                                name = "Count",
+                                breaks = c(0, 5, 10, 15, 20),
+                                labels = c("0", "5", "10", "15", "20"),
+                                limits = c(0, 20)) + 
+  ggplot2::xlab(NULL) +
+  ggplot2::ylab(NULL) +
+  ggplot2::theme_minimal(base_size = font.size) +
+  ggplot2::theme(axis.ticks.x.bottom = axis.parameters$axis.ticks.x.bottom,
+                 axis.ticks.x.top = axis.parameters$axis.ticks.x.top,
+                 axis.ticks.y.left = ggplot2::element_blank(),
+                 axis.ticks.y.right = ggplot2::element_blank(),
+                 axis.text.y.left = ggplot2::element_blank(),
+                 axis.text.y.right = ggplot2::element_blank(),
+                 axis.text.x.top = axis.parameters$axis.text.x.top,
+                 axis.text.x.bottom = axis.parameters$axis.text.x.bottom,
+                 axis.title.x.bottom = axis.parameters$axis.title.x.bottom,
+                 axis.title.x.top = axis.parameters$axis.title.x.top,
+                 axis.title.y.right = ggplot2::element_blank(),
+                 axis.title.y.left = axis.parameters$axis.title.y.left,
+                 strip.background = axis.parameters$strip.background,
+                 strip.clip = axis.parameters$strip.clip,
+                 strip.text = axis.parameters$strip.text,
+                 legend.position = "bottom",
+                 axis.line = ggplot2::element_blank(),
+                 plot.title = ggplot2::element_text(face = plot.title.face, hjust = 0),
+                 plot.subtitle = ggplot2::element_text(face = plot.subtitle.face, hjust = 0),
+                 plot.caption = ggplot2::element_text(face = plot.caption.face, hjust = 1),
+                 plot.title.position = "plot",
+                 panel.grid = ggplot2::element_blank(),
+                 panel.grid.minor.y = ggplot2::element_line(color = "white", linewidth = 1),
+                 text = ggplot2::element_text(family = font.type),
+                 plot.caption.position = "plot",
+                 legend.text = ggplot2::element_text(face = "plain", size = font.size),
+                 legend.title = ggplot2::element_text(face = "bold", size = font.size),
+                 legend.justification = "center",
+                 plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0, unit = "mm"),
+                 panel.border = ggplot2::element_rect(fill = NA, color = border.color, linewidth = 1),
+                 panel.grid.major = ggplot2::element_blank(),
+                 plot.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 panel.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.spacing = ggplot2::unit(0, "cm"),
+                 panel.spacing.x = ggplot2::unit(0, "cm"),
+                 panel.spacing.y = ggplot2::unit(0, "cm"))
+
+
+p <- SCpubr:::modify_continuous_legend(p = p,
+                                       legend.title = "Count",
+                                       legend.aes = "fill",
+                                       legend.type = "colorbar",
+                                       legend.position = "bottom",
+                                       legend.width = 1,
+                                       legend.length = 12.5,
+                                       legend.framewidth = 0.5,
+                                       legend.tickwidth = 0.5,
+                                       legend.framecolor = "grey50",
+                                       legend.tickcolor = "white")
+
+list.heatmaps.count[["TME"]] <- p 
+
+data.use <- prop %>% 
+  dplyr::select(dplyr::all_of(c(group.by, split.by, "freq"))) %>% 
+  dplyr::filter(!(.data$Final_Annotation %in% c("Astrocytes",
+                                                "Endothelial",
+                                                "Microglia",
+                                                "Neurons",
+                                                "OPC",
+                                                "Pericytes"))) %>% 
+  dplyr::mutate("Count" = ifelse(.data$freq > 0, 1, 0)) %>% 
+  dplyr::group_by(.data[[group.by]]) %>% 
+  dplyr::summarise("Present in patients" = sum(.data$Count))
+
+p <- data.use %>%
+  tidyr::pivot_longer(cols = -"Final_Annotation",
+                      names_to = "Var",
+                      values_to = "Value") %>% 
+  ggplot2::ggplot(mapping = ggplot2::aes(x = .data[[group.by]],
+                                         y = .data$Var,
+                                         fill = .data$Value)) + 
+  ggplot2::geom_tile(color = "white", linewidth = 0.5) +
+  ggplot2::geom_text(ggplot2::aes(label = round(.data$Value, 1), 
+                                  color = ifelse(.data$Value > 13, "white", "black")), 
+                     size = 3.75) +
+  ggplot2::scale_y_discrete(expand = c(0, 0)) +
+  ggplot2::scale_x_discrete(expand = c(0, 0),
+                            position = "top") +
+  ggplot2::guides(y.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[split.by]]))),
+                  x.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[group.by]])))) + 
+  ggplot2::coord_equal() +
+  ggplot2::scale_color_identity() + 
+  ggplot2::scale_fill_gradientn(colors = colors.gradient.count,
+                                na.value = "grey75",
+                                name = "Count",
+                                breaks = c(0, 5, 10, 15, 20),
+                                labels = c("0", "5", "10", "15", "20"),
+                                limits = c(0, 20)) +  
+  ggplot2::xlab(NULL) +
+  ggplot2::ylab(NULL) +
+  ggplot2::theme_minimal(base_size = font.size) +
+  ggplot2::theme(axis.ticks.x.bottom = axis.parameters$axis.ticks.x.bottom,
+                 axis.ticks.x.top = axis.parameters$axis.ticks.x.top,
+                 axis.ticks.y.left = ggplot2::element_blank(),
+                 axis.ticks.y.right = ggplot2::element_line(color = "black"),
+                 axis.text.y.left = ggplot2::element_blank(),
+                 axis.text.y.right = ggplot2::element_text(color = "black"),
+                 axis.text.x.top = axis.parameters$axis.text.x.top,
+                 axis.text.x.bottom = axis.parameters$axis.text.x.bottom,
+                 axis.title.x.bottom = axis.parameters$axis.title.x.bottom,
+                 axis.title.x.top = axis.parameters$axis.title.x.top,
+                 axis.title.y.right = ggplot2::element_blank(),
+                 axis.title.y.left = axis.parameters$axis.title.y.left,
+                 strip.background = axis.parameters$strip.background,
+                 strip.clip = axis.parameters$strip.clip,
+                 strip.text = axis.parameters$strip.text,
+                 legend.position = "bottom",
+                 axis.line = ggplot2::element_blank(),
+                 plot.title = ggplot2::element_text(face = plot.title.face, hjust = 0),
+                 plot.subtitle = ggplot2::element_text(face = plot.subtitle.face, hjust = 0),
+                 plot.caption = ggplot2::element_text(face = plot.caption.face, hjust = 1),
+                 plot.title.position = "plot",
+                 panel.grid = ggplot2::element_blank(),
+                 panel.grid.minor.y = ggplot2::element_line(color = "white", linewidth = 1),
+                 text = ggplot2::element_text(family = font.type),
+                 plot.caption.position = "plot",
+                 legend.text = ggplot2::element_text(face = "plain", size = font.size),
+                 legend.title = ggplot2::element_text(face = "bold", size = font.size),
+                 legend.justification = "center",
+                 plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0, unit = "mm"),
+                 panel.border = ggplot2::element_rect(fill = NA, color = border.color, linewidth = 1),
+                 panel.grid.major = ggplot2::element_blank(),
+                 plot.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 panel.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.spacing = ggplot2::unit(0, "cm"),
+                 panel.spacing.x = ggplot2::unit(0, "cm"),
+                 panel.spacing.y = ggplot2::unit(0, "cm"))
+
+
+p <- SCpubr:::modify_continuous_legend(p = p,
+                                       legend.title = "Count",
+                                       legend.aes = "fill",
+                                       legend.type = "colorbar",
+                                       legend.position = "bottom",
+                                       legend.width = 1,
+                                       legend.length = 12.5,
+                                       legend.framewidth = 0.5,
+                                       legend.tickwidth = 0.5,
+                                       legend.framecolor = "grey50",
+                                       legend.tickcolor = "white")
+
+list.heatmaps.count[["Tumor"]] <- p 
+
+
+data.use <- prop %>% 
+  dplyr::select(dplyr::all_of(c(split.by, "subtype", "Class", "freq"))) %>% 
+  dplyr::group_by(Class, .data[[split.by]]) %>% 
+  dplyr::summarise("Combfreq" = sum(.data$freq),
+                   "subtype" = unique(.data$subtype)) %>% 
+  dplyr::mutate("Count" = ifelse(.data$Combfreq > 0, 1, 0)) %>% 
+  dplyr::group_by(.data$Class) %>% 
+  dplyr::summarise("Present in patients" = sum(.data$Count))
+
+p <- data.use %>%
+  tidyr::pivot_longer(cols = -"Class",
+                      names_to = "Var",
+                      values_to = "Value") %>% 
+  ggplot2::ggplot(mapping = ggplot2::aes(x = .data$Class,
+                                         y = .data$Var,
+                                         fill = .data$Value)) + 
+  ggplot2::geom_tile(color = "white", linewidth = 0.5) +
+  ggplot2::geom_text(ggplot2::aes(label = round(.data$Value, 1), 
+                                  color = ifelse(.data$Value > 13, "white", "black")), 
+                     size = 3.75) +
+  ggplot2::scale_y_discrete(expand = c(0, 0)) +
+  ggplot2::scale_x_discrete(expand = c(0, 0),
+                            position = "top") +
+  ggplot2::guides(y.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[split.by]]))),
+                  x.sec = SCpubr:::guide_axis_label_trans(~paste0(levels(.data[[group.by]])))) + 
+  ggplot2::coord_equal() +
+  ggplot2::scale_color_identity() + 
+  ggplot2::scale_fill_gradientn(colors = colors.gradient.count,
+                                na.value = "grey75",
+                                name = "Count",
+                                breaks = c(0, 5, 10, 15, 20),
+                                labels = c("0", "5", "10", "15", "20"),
+                                limits = c(0, 20)) +  
+  ggplot2::xlab(NULL) +
+  ggplot2::ylab(NULL) +
+  ggplot2::theme_minimal(base_size = font.size) +
+  ggplot2::theme(axis.ticks.x.bottom = axis.parameters$axis.ticks.x.bottom,
+                 axis.ticks.x.top = axis.parameters$axis.ticks.x.top,
+                 axis.ticks.y.left = ggplot2::element_blank(),
+                 axis.ticks.y.right = ggplot2::element_blank(),
+                 axis.text.y.left = ggplot2::element_blank(),
+                 axis.text.y.right = ggplot2::element_blank(),
+                 axis.text.x.top = axis.parameters$axis.text.x.top,
+                 axis.text.x.bottom = axis.parameters$axis.text.x.bottom,
+                 axis.title.x.bottom = axis.parameters$axis.title.x.bottom,
+                 axis.title.x.top = axis.parameters$axis.title.x.top,
+                 axis.title.y.right = ggplot2::element_blank(),
+                 axis.title.y.left = axis.parameters$axis.title.y.left,
+                 strip.background = axis.parameters$strip.background,
+                 strip.clip = axis.parameters$strip.clip,
+                 strip.text = axis.parameters$strip.text,
+                 legend.position = "bottom",
+                 axis.line = ggplot2::element_blank(),
+                 plot.title = ggplot2::element_text(face = plot.title.face, hjust = 0),
+                 plot.subtitle = ggplot2::element_text(face = plot.subtitle.face, hjust = 0),
+                 plot.caption = ggplot2::element_text(face = plot.caption.face, hjust = 1),
+                 plot.title.position = "plot",
+                 panel.grid = ggplot2::element_blank(),
+                 panel.grid.minor.y = ggplot2::element_line(color = "white", linewidth = 1),
+                 text = ggplot2::element_text(family = font.type),
+                 plot.caption.position = "plot",
+                 legend.text = ggplot2::element_text(face = "plain", size = font.size),
+                 legend.title = ggplot2::element_text(face = "bold", size = font.size),
+                 legend.justification = "center",
+                 plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0, unit = "mm"),
+                 panel.border = ggplot2::element_rect(fill = NA, color = border.color, linewidth = 1),
+                 panel.grid.major = ggplot2::element_blank(),
+                 plot.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 panel.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.background = ggplot2::element_rect(fill = "white", color = "white"),
+                 legend.spacing = ggplot2::unit(0, "cm"),
+                 panel.spacing.x = ggplot2::unit(0, "cm"),
+                 panel.spacing.y = ggplot2::unit(0, "cm"))
+
+
+p <- SCpubr:::modify_continuous_legend(p = p,
+                                       legend.title = "Count",
+                                       legend.aes = "fill",
+                                       legend.type = "colorbar",
+                                       legend.position = "bottom",
+                                       legend.width = 1,
+                                       legend.length = 12.5,
+                                       legend.framewidth = 0.5,
+                                       legend.tickwidth = 0.5,
+                                       legend.framecolor = "grey50",
+                                       legend.tickcolor = "white")
+
+list.heatmaps.count[["Fraction"]] <- p 
+
+
+
+
+
+list.heatmaps.range$Fraction$labels$y <- "Range"
+list.heatmaps.count$Fraction$labels$y <- "N"
+list.heatmaps.count$Fraction$labels$x <- "Ratio"
+list.heatmaps.count$TME$labels$x <- "TME"
+list.heatmaps.count$Tumor$labels$x <- "Tumor"
+
+p <- patchwork::wrap_plots(A = list.heatmaps.count$Fraction | list.heatmaps.count$TME | list.heatmaps.count$Tumor,
+                           B = list.heatmaps.range$Fraction | list.heatmaps.range$TME | list.heatmaps.range$Tumor,
+                           C = list.heatmaps.prop$`ATRT-TYR` | list.heatmaps.tme$`ATRT-TYR` | list.heatmaps.tumor$`ATRT-TYR`,
+                           D = list.heatmaps.prop$`ATRT-SHH` | list.heatmaps.tme$`ATRT-SHH` | list.heatmaps.tumor$`ATRT-SHH`,
+                           E = list.heatmaps.prop$`ATRT-MYC` | list.heatmaps.tme$`ATRT-MYC` | list.heatmaps.tumor$`ATRT-MYC`,
+                           guides = "collect",
+                           heights = c(1, 2, 6, 9, 4),
+                           ncol = 1) + 
+     patchwork::plot_annotation(theme = ggplot2::theme(legend.position = "bottom",
+                                                       plot.margin = ggplot2::margin(t = 0, r = 0, b = 0, l = 0, unit = "mm")))
 ``` 
 
 
