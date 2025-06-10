@@ -12,14 +12,6 @@ suppressMessages(library("magrittr"))
   
 ```{r}
 #| eval: false
-# Enrique Blanco Carmona
-# e.blancocarmona@kitz-heidelberg.de
-# PhD Student – Clinical Bioinformatics
-# Division of Pediatric Neurooncology (B062)
-# DKFZ-KiTZ | Germany
-
-
-
 markers.path <- "path_to_supervised_annotation"
 markers <- readRDS(markers.path)
 
