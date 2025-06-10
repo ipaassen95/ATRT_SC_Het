@@ -1,14 +1,179 @@
 # Figure S9 {.unnumbered}
- 
+
 ```{r}
+# S9A
+library(Seurat)
+library(tidyverse)
+
+srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
+
+Idents(srat) <- "tumor_id"
+
+srat_sub <- subset(srat, idents = c("ATRT-15-TYR","ATRT-340"))
+dp_1 <- DotPlot(srat_sub, "LMX1A", group.by = "group")
+
+
+srat_sub <- subset(srat, idents = c("ATRT-207","ATRT-243"))
+dp_2 <- DotPlot(srat_sub, "LMX1A", group.by = "group")
+
+
+srat_sub <- subset(srat, idents = c("ATRT-05","ATRT-173","ATRT-256"))
+dp_3 <- DotPlot(srat_sub, "LMX1A", group.by = "group")
+
+
+df <- rbind.data.frame(cbind.data.frame(dp_1$data, Subtype = "TYR"),
+                       cbind.data.frame(dp_2$data, Subtype = "MYC"),
+                       cbind.data.frame(dp_3$data, Subtype = "SHH"))
+
+colnames(df)[c(2,1)] <- c("Percent expressed","Average expression")
+
+ggplot(df, aes(x = Subtype, y = id, size = `Percent expressed`, color = `Average expression`)) +
+  geom_point() +
+  theme_bw() +
+  ylab("Cell type") +
+  xlab("ATRT subtype") +
+  ggtitle("LMX1A expression") +
+  scale_color_viridis_c()
+
+
+
+# S9B - Top 
+
+library(Seurat)
+library(tidyverse)
+
+srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
+
+# Create cell segmentation object
+cell_boundaries_df <- as.data.frame(data.table::fread("cell_boundaries.csv.gz")) # Xenium on-board analysis output
+cell_boundaries_df <- cell_boundaries_df[cell_boundaries_df$cell_id %in% colnames(srat),1:3]
+names(cell_boundaries_df) <- c("cell", "x", "y")
+segmentation <- CreateSegmentation(cell_boundaries_df)
+rm(cell_boundaries_df)
+
+# Create centroids object
+cell_info <- as.data.frame(data.table::fread( "cells.csv.gz"))
+cell_centroid_df <- data.frame(
+  x = cell_info$x_centroid,
+  y = cell_info$y_centroid,
+  cell = cell_info$cell_id,
+  stringsAsFactors = FALSE
+)
+rm(cell_info)
+cell_centroid_df <- cell_centroid_df[cell_centroid_df$cell %in% colnames(srat),]
+centroids <- CreateCentroids(cell_centroid_df)
+
+# Add FOV to Seurat object
+coords <- CreateFOV(
+  coords = list( centroids = centroids, segmentation = segmentation),
+  type = c("segmentation", "centroids"),
+  assay = "Xenium"
+)
+
+srat[["fov"]] <- coords
+rm(segmentation, centroids, coords)
+
+# Crop object and make the plot
+
+#### Below are the per-sample cropping coordinates
+
+# ATRT-340
+cropped.coords <- Crop(srat[["fov"]], x = c(17000, 17500), y = c(2600, 3100), coords = "plot")
+
+# ATRT-173
+cropped.coords <- Crop(srat[["fov"]], y = c(2800, 3300), x = c(14700, 15200), coords = "plot")
+
+# ATRT-256
+cropped.coords <- Crop(srat[["fov"]], y = c(9000, 9500), x = c(10000, 10500), coords = "plot")
+
+# ATRT-243
+cropped.coords <- Crop(srat[["fov"]], y = c(5000, 5500), x = c(9000, 9500), coords = "plot")
+
+
+srat[["crop"]] <- cropped.coords
+srat$group[is.na(srat$group)] <- "Unannotated"
+Idents(srat) <- "group"
+
+pal <- c("Astrocytes" = "grey75",
+         "Cilia-like" = "#be0e0e",
+         "CP-like" = "#be660e",
+         "Endothelial" = "grey75",
+         "IPC-like" = "#be920e",
+         "Mesenchymal-like" = "#0ebe66",
+         "Microglia_Immune" = "grey75",
+         "Mural" = "grey75",
+         "Neurons" = "grey75",
+         "NPC-like" = "#0466c8",
+         "OPC" = "grey75",
+         "OPC-like" = "#0435c8",
+         "RG-like" = "#0497c8",
+         "Necrotic" = "grey75",
+         "Unannotated" = "grey75")
+
+
+ImageDimPlot(srat, fov = "crop", boundaries = "segmentation", dark.background = F, flip_xy = T, group.by = "group", cols = cpal, axes = T, border.size = 0.025) + NoLegend()
+
+
+
+# S9B - Bottom
+library(Seurat)
+library(tidyverse)
+
+srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
+
+# Create cell segmentation object
+cell_boundaries_df <- as.data.frame(data.table::fread("cell_boundaries.csv.gz")) # Xenium on-board analysis output
+cell_boundaries_df <- cell_boundaries_df[cell_boundaries_df$cell_id %in% colnames(srat),1:3]
+names(cell_boundaries_df) <- c("cell", "x", "y")
+segmentation <- CreateSegmentation(cell_boundaries_df)
+rm(cell_boundaries_df)
+
+# Create centroids object
+cell_info <- as.data.frame(data.table::fread( "cells.csv.gz"))
+cell_centroid_df <- data.frame(
+  x = cell_info$x_centroid,
+  y = cell_info$y_centroid,
+  cell = cell_info$cell_id,
+  stringsAsFactors = FALSE
+)
+rm(cell_info)
+cell_centroid_df <- cell_centroid_df[cell_centroid_df$cell %in% colnames(srat),]
+centroids <- CreateCentroids(cell_centroid_df)
+
+# Add FOV to Seurat object
+coords <- CreateFOV(
+  coords = list( centroids = centroids, segmentation = segmentation),
+  type = c("segmentation", "centroids"),
+  assay = "Xenium"
+)
+
+srat[["fov"]] <- coords
+rm(segmentation, centroids, coords)
+
+# Crop object and make the plot
+
+#### Below are the per-sample cropping coordinates
+
+# ATRT-340
+cropped.coords <- Crop(srat[["fov"]], x = c(17000, 17500), y = c(2600, 3100), coords = "plot")
+
+# ATRT-173
+cropped.coords <- Crop(srat[["fov"]], y = c(2800, 3300), x = c(14700, 15200), coords = "plot")
+
+# ATRT-256
+cropped.coords <- Crop(srat[["fov"]], y = c(9000, 9500), x = c(10000, 10500), coords = "plot")
+
+# ATRT-243
+cropped.coords <- Crop(srat[["fov"]], y = c(5000, 5500), x = c(9000, 9500), coords = "plot")
+
+
+srat[["crop"]] <- cropped.coords
+
+ImageFeaturePlot(srat, features = "LMX1A",fov = "crop", boundaries = "segmentation", 
+                 border.size = NA, dark.background = F, border.color = NA) + NoLegend() + ggtitle("") + scale_fill_viridis_c(option = "D")
+
+
 # Figure S9C
-
-# Enrique Blanco Carmona
-# e.blancocarmona@kitz-heidelberg.de
-# PhD Student – Clinical Bioinformatics
-# Division of Pediatric Neurooncology (B062)
-# DKFZ-KiTZ | Germany
-
 SCpubr::do_DotPlot(sample, 
                    features = LMX1A_target_correlation_scores %>% dplyr::filter(.data$correlation >= 0.9) %>% dplyr::pull(.data$gene), 
                    zscore.data = TRUE, 
@@ -16,5 +181,5 @@ SCpubr::do_DotPlot(sample,
                    font.size = 12, 
                    dot.scale = 6)
 ```
- 
+
  
