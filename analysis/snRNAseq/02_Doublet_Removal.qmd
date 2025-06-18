@@ -10,12 +10,6 @@ source("../_common.R")
 ```{r}
 #| eval: false
 
-# Enrique Blanco Carmona
-# e.blancocarmona@kitz-heidelberg.de
-# Postdoctoral researcher.
-# Division of Pediatric Neurooncology (B062)
-# DKFZ-KiTZ | Germany
-
 # Load conda environment with python instalation. This depends on each user's.
 reticulate::use_condaenv(condaenv = "rstudio_server")
 

@@ -1,6 +1,7 @@
 # Figure S9 {.unnumbered}
 
 ```{r}
+#| eval: false
 # S9A
 library(Seurat)
 library(tidyverse)

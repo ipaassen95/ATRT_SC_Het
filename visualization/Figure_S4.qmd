@@ -204,43 +204,47 @@ p <- SCpubr::do_DotPlot(sample,
 ```
 
 
-```{python}
-import scanpy as sc
-import scvelo as scv
-import pandas as pd
-import matplotlib.pyplot as plt
+```{r}
+#| eval: false
 
+# Code commented due to compilation problems with Quarto.
 
-# Set beautiful plotting parameters.
-scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
-scv.settings.presenter_view = True  # set max width size for presenter view
-scv.set_figure_params('scvelo')  # for beautified visualization
-
-adata = sc.read(path.to.adata, cache = True)
-
-custom_colors = {
-    "IPC-like": "#be920e",  
-    "CP-like": "#be660e",  
-    "Cilia-like": "#be0e0e", 
-    "NPC-like": "#0466c8",
-    "Other": "#C0C0C0",
-}
-
-custom_colors = {
-    "IPC-like": "#be920e",  
-    "CP-like": "#be660e",  
-    "Cilia-like": "#be0e0e", 
-    "Neurons": "#0466c8",
-    "Other": "#C0C0C0",
-}
-
-# This is Figure S4 H
-fig, ax = plt.subplots(figsize=(7,7))
-scv.pl.velocity_embedding_stream(adata, basis='umap', color = "annotation", palette = custom_colors, legend_loc="right", add_outline = True, ax = ax, frameon = False, figsize = (7, 7), size = 50, alpha = 1, arrow_size = 2, linewidth=2)
-
-# This is Figure S4 G
-fig, ax = plt.subplots(figsize=(7,7))
-sc.pl.umap(adata, color = "annotation", legend_loc="best", add_outline=True, size = 50,  palette = custom_colors, ax=ax, frameon = False)
+# import scanpy as sc
+# import scvelo as scv
+# import pandas as pd
+# import matplotlib.pyplot as plt
+# 
+# 
+# # Set beautiful plotting parameters.
+# scv.settings.verbosity = 3  # show errors(0), warnings(1), info(2), hints(3)
+# scv.settings.presenter_view = True  # set max width size for presenter view
+# scv.set_figure_params('scvelo')  # for beautified visualization
+# 
+# adata = sc.read(path.to.adata, cache = True)
+# 
+# custom_colors = {
+#     "IPC-like": "#be920e",  
+#     "CP-like": "#be660e",  
+#     "Cilia-like": "#be0e0e", 
+#     "NPC-like": "#0466c8",
+#     "Other": "#C0C0C0",
+# }
+# 
+# custom_colors = {
+#     "IPC-like": "#be920e",  
+#     "CP-like": "#be660e",  
+#     "Cilia-like": "#be0e0e", 
+#     "Neurons": "#0466c8",
+#     "Other": "#C0C0C0",
+# }
+# 
+# # This is Figure S4 H
+# fig, ax = plt.subplots(figsize=(7,7))
+# scv.pl.velocity_embedding_stream(adata, basis='umap', color = "annotation", palette = custom_colors, legend_loc="right", add_outline = True, ax = ax, frameon = False, figsize = (7, 7), size = 50, alpha = 1, arrow_size = 2, linewidth=2)
+# 
+# # This is Figure S4 G
+# fig, ax = plt.subplots(figsize=(7,7))
+# sc.pl.umap(adata, color = "annotation", legend_loc="best", add_outline=True, size = 50,  palette = custom_colors, ax=ax, frameon = False)
 ```
 
 

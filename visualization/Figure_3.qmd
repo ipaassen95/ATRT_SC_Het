@@ -95,70 +95,73 @@ ggplot(data, aes(y = id, x = features.plot, size = pct.exp, fill = avg.exp.scale
         axis.line = element_line(size = 0.25))
 ```
 
-```{python}
+```{r}
 #| eval: false
 # 3C
-import numpy as np
-import pandas as pd
 
-import matplotlib.pyplot as plt
-import seaborn as sns
+# Code commented due to compilation errors with Quarto.
 
-import scanpy as sc
-import squidpy as sq
-
-import os
-from copy import deepcopy
-
-#### This script was run per tumor sample to generate the plots in Figures 3C and S7C, but the steps are identical
-
-# Read expression matrix
-adata = sc.read_10x_h5(
-    filename = "cell_feature_matrix.h5"
-)
-
-# Read the cell info file
-df = pd.read_csv(
-    "cells.csv.gz"
-)
-
-df.set_index(adata.obs_names, inplace = True)
-adata.obs = df.copy()
-
-adata.obsm["spatial"] = adata.obs[["x_centroid","y_centroid"]].copy().to_numpy()
-
-# Read RCTD annotations
-annotations = pd.read_csv(
-    "ANNOTATIONS.csv"
-)
-
-adata_sub = adata[annotations["cell_id"]].copy()
-del(adata)
-
-annotations.set_index(adata_sub.obs_names, inplace = True)
-adata_sub.obs["type"]= annotations["group"].copy().astype('category')
-
-import matplotlib.colors
-
-colors = ["#BA531CFF","#be660e","#be0e0e","#5E4CCDFF","#be920e","#0ebe66","#0092AAFF","#a32978","#0466c8",
-         "#BFBFBF","#787F00FF","#009257FF","#0435c8", "#0497c8"]
-
-cmap = matplotlib.colors.ListedColormap(colors)
-
-
-sq.pl.spatial_scatter(adata_sub, 
-                      shape = None, 
-                      color = "type", 
-                      size = 1, 
-                      library_id = "spatial",
-                      img = False, 
-                      figsize = (15,15),
-                      palette = cmap,
-                      frameon = False,
-                      colorbar = False,
-                      title = "",
-                      legend_loc = None
-                     )
+# import numpy as np
+# import pandas as pd
+# 
+# import matplotlib.pyplot as plt
+# import seaborn as sns
+# 
+# import scanpy as sc
+# import squidpy as sq
+# 
+# import os
+# from copy import deepcopy
+# 
+# #### This script was run per tumor sample to generate the plots in Figures 3C and S7C, but the steps are identical
+# 
+# # Read expression matrix
+# adata = sc.read_10x_h5(
+#     filename = "cell_feature_matrix.h5"
+# )
+# 
+# # Read the cell info file
+# df = pd.read_csv(
+#     "cells.csv.gz"
+# )
+# 
+# df.set_index(adata.obs_names, inplace = True)
+# adata.obs = df.copy()
+# 
+# adata.obsm["spatial"] = adata.obs[["x_centroid","y_centroid"]].copy().to_numpy()
+# 
+# # Read RCTD annotations
+# annotations = pd.read_csv(
+#     "ANNOTATIONS.csv"
+# )
+# 
+# adata_sub = adata[annotations["cell_id"]].copy()
+# del(adata)
+# 
+# annotations.set_index(adata_sub.obs_names, inplace = True)
+# adata_sub.obs["type"]= annotations["group"].copy().astype('category')
+# 
+# import matplotlib.colors
+# 
+# colors = ["#BA531CFF","#be660e","#be0e0e","#5E4CCDFF","#be920e","#0ebe66","#0092AAFF","#a32978","#0466c8",
+#          "#BFBFBF","#787F00FF","#009257FF","#0435c8", "#0497c8"]
+# 
+# cmap = matplotlib.colors.ListedColormap(colors)
+# 
+# 
+# sq.pl.spatial_scatter(adata_sub, 
+#                       shape = None, 
+#                       color = "type", 
+#                       size = 1, 
+#                       library_id = "spatial",
+#                       img = False, 
+#                       figsize = (15,15),
+#                       palette = cmap,
+#                       frameon = False,
+#                       colorbar = False,
+#                       title = "",
+#                       legend_loc = None
+#                      )
 ```
 
 ```{r}

@@ -10,12 +10,6 @@ source("../_common.R")
 ```{r}
 #| eval: false
 
-# Enrique Blanco Carmona
-# e.blancocarmona@kitz-heidelberg.de
-# Postdoctoral researcher.
-# Division of Pediatric Neurooncology (B062)
-# DKFZ-KiTZ | Germany
-
 # Global variables
 n_pcs <- 25
 regress_out_vars <- c("nCount_RNA", "nFeature_RNA", "percent.mt")

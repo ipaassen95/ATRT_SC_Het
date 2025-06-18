@@ -10,13 +10,6 @@ source("../_common.R")
 ```{r}
 #| eval: false
 
-# Enrique Blanco Carmona
-# e.blancocarmona@kitz-heidelberg.de
-# PhD Student – Clinical Bioinformatics
-# Division of Pediatric Neurooncology (B062)
-# DKFZ-KiTZ | Germany
-
-
 # QC -----
 
 # RDS objects before QC are read into memory.

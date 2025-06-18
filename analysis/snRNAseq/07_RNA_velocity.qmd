@@ -1,12 +1,14 @@
 # RNA velocity {.unnumbered}
 
 
-```{bash}
+```{r}
+# Code commented due to problems with Quarto compilation.
+
 # Compute spliced/unspliced
-velocyto run10x \
--m "hs38_rmsk.gtf" \
-"10X_folder" \
-"genes.gtf"
+#velocyto run10x \
+#-m "hs38_rmsk.gtf" \
+#"10X_folder" \
+#"genes.gtf"
 ```
 
 
@@ -148,62 +150,65 @@ write.table(cells.use, file = "cells_use.tsv",
 ```
 
 
-```{python}
-import scanpy as sc
-import scvelo as scv
-import pandas as pd
-import matplotlib.pyplot as plt
-
-# Load meatadata
-metadata = pd.read_csv(path.to.metadata, sep = "\t")
-genes = pd.read_csv(path.to.genes, sep = "\t")
-cells = pd.read_csv(path.to.cells, sep = "\t")
-
-metadata = metadata.rename(columns = {"cell": "CellID"})
-adata.obs = adata.obs.merge(metadata, on = "CellID", how = "left")
-
-cells = cells.rename(columns = {"cell": "CellID"})
-adata.obs = adata.obs.merge(cells, on = "CellID", how = "left")
-
-# Drop NAs
-adata = adata[adata.obs["filter"].notna(), :]
+```{r}
+# Code commented due to problems with Quarto compilation.
 
 
-# Normalizing to median total counts
-sc.pp.normalize_total(adata)
-# Logarithmize the data
-sc.pp.log1p(adata)
-# HVG.
-sc.pp.highly_variable_genes(adata, n_top_genes=2000)
-# PCA.
-sc.tl.pca(adata)
-sc.pp.neighbors(adata, n_neighbors=10, n_pcs=20)  # Adjust based on dataset size
-# UMAP.
-sc.tl.umap(adata)
-# Clustering
-sc.tl.leiden(adata, flavor="igraph", n_iterations=2)
-
-scv.pp.filter_and_normalize(adata, min_shared_counts=20, n_top_genes=2000)
-scv.pp.moments(adata, n_pcs=20, n_neighbors=30)
-scv.tl.velocity(adata)
-scv.tl.velocity_graph(adata)
-
-
-sc.pl.umap(adata, color=["annotation"], add_outline=True, legend_loc = "on data")
-
-# Inspect top markers genes.
-adata.var_names_make_unique()
-markers = pd.read_csv("/omics/odcf/analysis/hipo/hipo_049/ATRT/ATRT_Publication_GitHub/datasets/ATRT_RNA_top100_markers_across_populations.tsv", sep = "\t")
-
-markers_use = {"IPC-like": [gene for gene in markers["IPC.like"] if gene in adata.var_names][1:7],
-               "CP-like": [gene for gene in markers["CP.like"] if gene in adata.var_names][1:7],
-               "Cilia-like":  [gene for gene in markers["Cilia.like"] if gene in adata.var_names][1:7],
-               "Endothelial":  [gene for gene in markers["Endothelial"] if gene in adata.var_names][1:7],
-               "NPC-like":  [gene for gene in markers["NPC.like"] if gene in adata.var_names][1:7],
-               "OPC-like":  [gene for gene in markers["OPC.like"] if gene in adata.var_names][1:7],
-               "RG-like":  [gene for gene in markers["RG.like"] if gene in adata.var_names][1:7],
-              "Mesenchymal-like":  [gene for gene in markers["Mesenchymal.like"] if gene in adata.var_names][1:7]}
-
-sc.pl.dotplot(adata, markers_use, groupby="annotation", standard_scale="var")
+# import scanpy as sc
+# import scvelo as scv
+# import pandas as pd
+# import matplotlib.pyplot as plt
+# 
+# # Load meatadata
+# metadata = pd.read_csv(path.to.metadata, sep = "\t")
+# genes = pd.read_csv(path.to.genes, sep = "\t")
+# cells = pd.read_csv(path.to.cells, sep = "\t")
+# 
+# metadata = metadata.rename(columns = {"cell": "CellID"})
+# adata.obs = adata.obs.merge(metadata, on = "CellID", how = "left")
+# 
+# cells = cells.rename(columns = {"cell": "CellID"})
+# adata.obs = adata.obs.merge(cells, on = "CellID", how = "left")
+# 
+# # Drop NAs
+# adata = adata[adata.obs["filter"].notna(), :]
+# 
+# 
+# # Normalizing to median total counts
+# sc.pp.normalize_total(adata)
+# # Logarithmize the data
+# sc.pp.log1p(adata)
+# # HVG.
+# sc.pp.highly_variable_genes(adata, n_top_genes=2000)
+# # PCA.
+# sc.tl.pca(adata)
+# sc.pp.neighbors(adata, n_neighbors=10, n_pcs=20)  # Adjust based on dataset size
+# # UMAP.
+# sc.tl.umap(adata)
+# # Clustering
+# sc.tl.leiden(adata, flavor="igraph", n_iterations=2)
+# 
+# scv.pp.filter_and_normalize(adata, min_shared_counts=20, n_top_genes=2000)
+# scv.pp.moments(adata, n_pcs=20, n_neighbors=30)
+# scv.tl.velocity(adata)
+# scv.tl.velocity_graph(adata)
+# 
+# 
+# sc.pl.umap(adata, color=["annotation"], add_outline=True, legend_loc = "on data")
+# 
+# # Inspect top markers genes.
+# adata.var_names_make_unique()
+# markers = pd.read_csv("/omics/odcf/analysis/hipo/hipo_049/ATRT/ATRT_Publication_GitHub/datasets/ATRT_RNA_top100_markers_across_populations.tsv", sep = "\t")
+# 
+# markers_use = {"IPC-like": [gene for gene in markers["IPC.like"] if gene in adata.var_names][1:7],
+#                "CP-like": [gene for gene in markers["CP.like"] if gene in adata.var_names][1:7],
+#                "Cilia-like":  [gene for gene in markers["Cilia.like"] if gene in adata.var_names][1:7],
+#                "Endothelial":  [gene for gene in markers["Endothelial"] if gene in adata.var_names][1:7],
+#                "NPC-like":  [gene for gene in markers["NPC.like"] if gene in adata.var_names][1:7],
+#                "OPC-like":  [gene for gene in markers["OPC.like"] if gene in adata.var_names][1:7],
+#                "RG-like":  [gene for gene in markers["RG.like"] if gene in adata.var_names][1:7],
+#               "Mesenchymal-like":  [gene for gene in markers["Mesenchymal.like"] if gene in adata.var_names][1:7]}
+# 
+# sc.pl.dotplot(adata, markers_use, groupby="annotation", standard_scale="var")
 ```
 
