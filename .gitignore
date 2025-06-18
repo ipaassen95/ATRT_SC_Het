@@ -2,10 +2,13 @@
 .Rhistory
 .RData
 .Ruserdata
-ATRT_SC_Het.Rproj
+ATRT_SC_Het_Revision.Rproj
 render*
 _bookdown_files
 omnipathr-log/*
 /.quarto/
 index_files/*
-docs/*
+analysis/snRNAseq/intense.js
+analysis/snATACseq/intense.js
+analysis/Xenium/intense.js
+analysis/bulkRNAseq/intense.js

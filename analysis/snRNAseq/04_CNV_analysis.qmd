@@ -10,12 +10,6 @@ source("../_common.R")
 ```{r}
 #| eval: false
 
-# Enrique Blanco Carmona
-# e.blancocarmona@kitz-heidelberg.de
-# Postdoctoral researcher.
-# Division of Pediatric Neurooncology (B062)
-# DKFZ-KiTZ | Germany
-
 # Methodology from: https://www.cell.com/cell-reports-medicine/pdf/S2666-3791(23)00426-3.pdf
 
 

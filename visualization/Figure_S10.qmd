@@ -1,6 +1,6 @@
 # Figure S10 {.unnumbered}
 
-```{python}
+```{r}
 #| results: "asis"
 #| echo: false
 #| eval: false
@@ -10,6 +10,7 @@ suppressMessages(library("magrittr"))
 ```
 
 ```{r}
+#| eval: false
 sample <- readRDS(path.to.SC.sample)
 sample$Full_Annotation <- as.character(sample$Full_Annotation)
 
@@ -124,218 +125,221 @@ p2 <- SCpubr::do_DotPlot(sample,
 
 
 
-```{python}
-#| eval: false
-# S10C
-import numpy as np
-import pandas as pd
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-import scanpy as sc
-import squidpy as sq
-
-import os
-from copy import deepcopy
-
-#### This script was run per tumor sample to generate the plots in Figures 3C and S7C, but the steps are identical
-
-# Read expression matrix
-adata = sc.read_10x_h5(
-    filename = "cell_feature_matrix.h5"
-)
-
-# Read the cell info file
-df = pd.read_csv(
-    "cells.csv.gz"
-)
-
-df.set_index(adata.obs_names, inplace = True)
-adata.obs = df.copy()
-
-adata.obsm["spatial"] = adata.obs[["x_centroid","y_centroid"]].copy().to_numpy()
-
-# Read RCTD annotations
-annotations = pd.read_csv(
-    "ANNOTATIONS.csv"
-)
-
-adata_sub = adata[annotations["cell_id"]].copy()
-del(adata)
-
-annotations.set_index(adata_sub.obs_names, inplace = True)
-adata_sub.obs["type"]= annotations["group"].copy().astype('category')
-
-import matplotlib.colors
-
-colors = ["#BA531CFF","#be660e","#be0e0e","#5E4CCDFF","#be920e","#0ebe66","#0092AAFF","#a32978","#0466c8",
-         "#BFBFBF","#787F00FF","#009257FF","#0435c8", "#0497c8"]
-
-cmap = matplotlib.colors.ListedColormap(colors)
-
-
-sq.pl.spatial_scatter(adata_sub, 
-                      shape = None, 
-                      color = "type", 
-                      size = 1, 
-                      library_id = "spatial",
-                      img = False, 
-                      figsize = (15,15),
-                      palette = cmap,
-                      frameon = False,
-                      colorbar = False,
-                      title = "",
-                      legend_loc = None
-                     )
-
-
-
-```
-
 ```{r}
 #| eval: false
 
-# S10D 
+# Code commented due to compilation problems with Quarto.
 
-library(Seurat)
-library(tidyverse)
-
-
-srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
-data <- srat@meta.data %>% select(group, sample)
-
-# Build proportion table
-df <- as.data.frame(prop.table(table(data$group,data$sample), 2))
-
-
-df$subtype <- plyr::mapvalues(df$Var2,
-                              from = c("ATRT-05",
-                                       "ATRT-15-RV4",
-                                       "ATRT-173",
-                                       "ATRT-207",
-                                       "ATRT-243",
-                                       "ATRT-256",
-                                       "ATRT-340"),
-                              to = c("ATRT-SHH","ATRT-TYR","ATRT-SHH","ATRT-MYC","ATRT-MYC","ATRT-SHH","ATRT-TYR")
-)
-colnames(df) <- c("Annotation","Tumor","Freq","Subtype")
-
-
-
-cpal <- c("Astrocytes" = "#BA531CFF",
-          "Cilia-like" = "#be0e0e",
-          "CP-like" = "#be660e",
-          "Endothelial" = "#5E4CCDFF",
-          "IPC-like" = "#be920e",
-          "Mesenchymal-like" = "#0ebe66",
-          "Microglia & immune" = "#0092AAFF",
-          "Pericytes" = "#a32978",
-          "Neurons" = "#787F00FF",
-          "NPC-like" = "#0466c8",
-          "OPC" = "#009257FF",
-          "OPC-like" = "#0435c8",
-          "RG-like" = "#0497c8",
-          "Necrotic" = "grey55")
-
-df$Annotation <- factor(df$Annotation, levels = c("Astrocytes",
-                                                  "Neurons",
-                                                  "OPC",
-                                                  "Microglia & immune",
-                                                  "Endothelial",
-                                                  "Pericytes",
-                                                  "IPC-like",
-                                                  "CP-like",
-                                                  "Cilia-like",
-                                                  "OPC-like",
-                                                  "NPC-like",
-                                                  "RG-like",
-                                                  "Mesenchymal-like",
-                                                  "Necrotic"))
-
-
-
-df$Tumor <- factor(df$Tumor, levels = c("ATRT-05",
-                                        "ATRT-173",
-                                        "ATRT-256",
-                                        "ATRT-15-RV4",
-                                        "ATRT-340",
-                                        "ATRT-207",
-                                        "ATRT-243"))
-
-ggplot(df, aes(x = Tumor, y = Freq, fill = Annotation)) +
-  geom_bar(position = "fill", stat = "identity", color = "black", linewidth = 0.1) +
-  xlab("") +
-  ylab("Proportion of tumor cells") +
-  scale_fill_manual(values = cpal) +
-  theme_classic() +
-  facet_grid(cols = vars(Subtype), scales = "free", space = "free") +
-  theme(legend.title = element_blank(),
-        legend.text = element_text(size = 6, color = "black"),
-        legend.position = "none",
-        axis.title = element_text(size = 6, colour = "black"),
-        axis.text = element_text(size = 6, color = "black"),
-        axis.text.x = element_text(angle = 90, hjust = 1),
-        axis.ticks = element_line(size = 0.25), 
-        axis.line = element_line(size = 0.25), 
-        strip.text = element_text(size = 6, color = "black"),
-        strip.background = element_blank(),
-        legend.key.size = unit(3,"mm"),
-        legend.key.spacing.y = unit(1,"mm"))
-
-# S10E
-library(Seurat)
-library(tidyverse)
-
-srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
-
-# Remove Non-malignant cells
-Idents(srat) <- "group"
-srat <- subset(srat, cells = WhichCells(srat, idents = c("Astrocytes",
-                                                         "Neurons",
-                                                         "OPC",
-                                                         "Microglia_Immune",
-                                                         "Endothelial",
-                                                         "Mural")), invert = T)
-
-
-# Use the Seurat built-in DotPlot function to pull the necessary data easily
-data <-DotPlot(srat, features = c("CCNB2","CDK1","CENPF",
-                                  "MKI67","PCNA",
-                                  "TOP2A"))$data
-
-# Re-order IDs for plotting
-data$id <- factor(data$id, levels = rev(c("IPC-like",
-                                          "CP-like",
-                                          "Cilia-like",
-                                          "OPC-like",
-                                          "NPC-like",
-                                          "RG-like",
-                                          "Mesenchymal-like")),
-                  labels = rev(c("IPC-like",
-                                 "CP-like",
-                                 "Cilia-like",
-                                 "OPC-like",
-                                 "NPC-like",
-                                 "RG-like",
-                                 "Mesenchymal-like")))
-
-ggplot(data, aes(y = id, x = features.plot, size = pct.exp, fill = avg.exp.scaled)) +
-  geom_point(shape=21, stroke = 0.1) +
-  theme_classic() +
-  scale_size_area(max_size = 3.5) +
-  scale_fill_distiller(palette = "RdBu", limits=c(-2.5,2.5)) +
-  labs(fill="Average expression", size = "Percent expressed") +
-  xlab("") +
-  ylab("") +
-  theme(axis.text.y = element_text(size=6, color = "black"),
-        axis.text.x = element_text(size=5, color = "black", face = "italic"),
-        legend.text = element_text(size=6, color = "black"),
-        legend.title = element_text(size=6, color = "black"),
-        legend.key.size = unit(0.75, 'lines'),
-        legend.position = "none", 
-        axis.ticks = element_line(size = 0.25), 
-        axis.line = element_line(size = 0.25))
+# # S10C
+# import numpy as np
+# import pandas as pd
+# 
+# import matplotlib.pyplot as plt
+# import seaborn as sns
+# 
+# import scanpy as sc
+# import squidpy as sq
+# 
+# import os
+# from copy import deepcopy
+# 
+# #### This script was run per tumor sample to generate the plots in Figures 3C and S7C, but the steps are identical
+# 
+# # Read expression matrix
+# adata = sc.read_10x_h5(
+#     filename = "cell_feature_matrix.h5"
+# )
+# 
+# # Read the cell info file
+# df = pd.read_csv(
+#     "cells.csv.gz"
+# )
+# 
+# df.set_index(adata.obs_names, inplace = True)
+# adata.obs = df.copy()
+# 
+# adata.obsm["spatial"] = adata.obs[["x_centroid","y_centroid"]].copy().to_numpy()
+# 
+# # Read RCTD annotations
+# annotations = pd.read_csv(
+#     "ANNOTATIONS.csv"
+# )
+# 
+# adata_sub = adata[annotations["cell_id"]].copy()
+# del(adata)
+# 
+# annotations.set_index(adata_sub.obs_names, inplace = True)
+# adata_sub.obs["type"]= annotations["group"].copy().astype('category')
+# 
+# import matplotlib.colors
+# 
+# colors = ["#BA531CFF","#be660e","#be0e0e","#5E4CCDFF","#be920e","#0ebe66","#0092AAFF","#a32978","#0466c8",
+#          "#BFBFBF","#787F00FF","#009257FF","#0435c8", "#0497c8"]
+# 
+# cmap = matplotlib.colors.ListedColormap(colors)
+# 
+# 
+# sq.pl.spatial_scatter(adata_sub, 
+#                       shape = None, 
+#                       color = "type", 
+#                       size = 1, 
+#                       library_id = "spatial",
+#                       img = False, 
+#                       figsize = (15,15),
+#                       palette = cmap,
+#                       frameon = False,
+#                       colorbar = False,
+#                       title = "",
+#                       legend_loc = None
+#                      )
+# 
+# 
+# 
+# ```
+# 
+# ```{r}
+# #| eval: false
+# 
+# # S10D 
+# 
+# library(Seurat)
+# library(tidyverse)
+# 
+# 
+# srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
+# data <- srat@meta.data %>% select(group, sample)
+# 
+# # Build proportion table
+# df <- as.data.frame(prop.table(table(data$group,data$sample), 2))
+# 
+# 
+# df$subtype <- plyr::mapvalues(df$Var2,
+#                               from = c("ATRT-05",
+#                                        "ATRT-15-RV4",
+#                                        "ATRT-173",
+#                                        "ATRT-207",
+#                                        "ATRT-243",
+#                                        "ATRT-256",
+#                                        "ATRT-340"),
+#                               to = c("ATRT-SHH","ATRT-TYR","ATRT-SHH","ATRT-MYC","ATRT-MYC","ATRT-SHH","ATRT-TYR")
+# )
+# colnames(df) <- c("Annotation","Tumor","Freq","Subtype")
+# 
+# 
+# 
+# cpal <- c("Astrocytes" = "#BA531CFF",
+#           "Cilia-like" = "#be0e0e",
+#           "CP-like" = "#be660e",
+#           "Endothelial" = "#5E4CCDFF",
+#           "IPC-like" = "#be920e",
+#           "Mesenchymal-like" = "#0ebe66",
+#           "Microglia & immune" = "#0092AAFF",
+#           "Pericytes" = "#a32978",
+#           "Neurons" = "#787F00FF",
+#           "NPC-like" = "#0466c8",
+#           "OPC" = "#009257FF",
+#           "OPC-like" = "#0435c8",
+#           "RG-like" = "#0497c8",
+#           "Necrotic" = "grey55")
+# 
+# df$Annotation <- factor(df$Annotation, levels = c("Astrocytes",
+#                                                   "Neurons",
+#                                                   "OPC",
+#                                                   "Microglia & immune",
+#                                                   "Endothelial",
+#                                                   "Pericytes",
+#                                                   "IPC-like",
+#                                                   "CP-like",
+#                                                   "Cilia-like",
+#                                                   "OPC-like",
+#                                                   "NPC-like",
+#                                                   "RG-like",
+#                                                   "Mesenchymal-like",
+#                                                   "Necrotic"))
+# 
+# 
+# 
+# df$Tumor <- factor(df$Tumor, levels = c("ATRT-05",
+#                                         "ATRT-173",
+#                                         "ATRT-256",
+#                                         "ATRT-15-RV4",
+#                                         "ATRT-340",
+#                                         "ATRT-207",
+#                                         "ATRT-243"))
+# 
+# ggplot(df, aes(x = Tumor, y = Freq, fill = Annotation)) +
+#   geom_bar(position = "fill", stat = "identity", color = "black", linewidth = 0.1) +
+#   xlab("") +
+#   ylab("Proportion of tumor cells") +
+#   scale_fill_manual(values = cpal) +
+#   theme_classic() +
+#   facet_grid(cols = vars(Subtype), scales = "free", space = "free") +
+#   theme(legend.title = element_blank(),
+#         legend.text = element_text(size = 6, color = "black"),
+#         legend.position = "none",
+#         axis.title = element_text(size = 6, colour = "black"),
+#         axis.text = element_text(size = 6, color = "black"),
+#         axis.text.x = element_text(angle = 90, hjust = 1),
+#         axis.ticks = element_line(size = 0.25), 
+#         axis.line = element_line(size = 0.25), 
+#         strip.text = element_text(size = 6, color = "black"),
+#         strip.background = element_blank(),
+#         legend.key.size = unit(3,"mm"),
+#         legend.key.spacing.y = unit(1,"mm"))
+# 
+# # S10E
+# library(Seurat)
+# library(tidyverse)
+# 
+# srat <- readRDS("OBJECT.rds") # Read Seurat object containing annotated cells (post-normalization)
+# 
+# # Remove Non-malignant cells
+# Idents(srat) <- "group"
+# srat <- subset(srat, cells = WhichCells(srat, idents = c("Astrocytes",
+#                                                          "Neurons",
+#                                                          "OPC",
+#                                                          "Microglia_Immune",
+#                                                          "Endothelial",
+#                                                          "Mural")), invert = T)
+# 
+# 
+# # Use the Seurat built-in DotPlot function to pull the necessary data easily
+# data <-DotPlot(srat, features = c("CCNB2","CDK1","CENPF",
+#                                   "MKI67","PCNA",
+#                                   "TOP2A"))$data
+# 
+# # Re-order IDs for plotting
+# data$id <- factor(data$id, levels = rev(c("IPC-like",
+#                                           "CP-like",
+#                                           "Cilia-like",
+#                                           "OPC-like",
+#                                           "NPC-like",
+#                                           "RG-like",
+#                                           "Mesenchymal-like")),
+#                   labels = rev(c("IPC-like",
+#                                  "CP-like",
+#                                  "Cilia-like",
+#                                  "OPC-like",
+#                                  "NPC-like",
+#                                  "RG-like",
+#                                  "Mesenchymal-like")))
+# 
+# ggplot(data, aes(y = id, x = features.plot, size = pct.exp, fill = avg.exp.scaled)) +
+#   geom_point(shape=21, stroke = 0.1) +
+#   theme_classic() +
+#   scale_size_area(max_size = 3.5) +
+#   scale_fill_distiller(palette = "RdBu", limits=c(-2.5,2.5)) +
+#   labs(fill="Average expression", size = "Percent expressed") +
+#   xlab("") +
+#   ylab("") +
+#   theme(axis.text.y = element_text(size=6, color = "black"),
+#         axis.text.x = element_text(size=5, color = "black", face = "italic"),
+#         legend.text = element_text(size=6, color = "black"),
+#         legend.title = element_text(size=6, color = "black"),
+#         legend.key.size = unit(0.75, 'lines'),
+#         legend.position = "none", 
+#         axis.ticks = element_line(size = 0.25), 
+#         axis.line = element_line(size = 0.25))
 
 ```
 

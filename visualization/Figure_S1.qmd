@@ -125,9 +125,3 @@ p1 <- SCpubr::do_DotPlot(sample,
                          group.by = "subtype")
 
 ```
-
-
-
-
-
-

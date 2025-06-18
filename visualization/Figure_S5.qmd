@@ -10,6 +10,8 @@ suppressMessages(library("magrittr"))
 ```
 
 ```{r}
+#| eval: false
+#| 
 # Overarching Seurat object.
 path.to.sample <- "path_to_snRNAseq_sample"
 sample <- readRDS(path.to.sample)

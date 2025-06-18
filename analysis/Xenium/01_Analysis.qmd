@@ -79,63 +79,66 @@ srat <- SetAssayData(object = srat,
 
 ```
 
-```{python}
+```{r}
 #| eval: false
 
-# Neighborhood analysis
-# The following code was used to perform Neighborhood Enrichment analysis and export the results to CSV files for downstream analysis in R
-# Run independently for each tumor sample
+# Code is commented because of compilation errors with Quarto.
 
-import scimap as sm
-import anndata as ad
-import pandas as pd
-import scanpy as sc
-import squidpy as sq
+# # Neighborhood analysis
+# # The following code was used to perform Neighborhood Enrichment analysis and export the results to CSV files for downstream analysis in R
+# # Run independently for each tumor sample
+# 
+# import scimap as sm
+# import anndata as ad
+# import pandas as pd
+# import scanpy as sc
+# import squidpy as sq
+# 
+# # Read expression matrix
+# adata = sc.read_10x_h5(
+#     filename = "cell_feature_matrix.h5"
+# )
+# 
+# # Read the cell info file
+# df = pd.read_csv(
+#     "cells.csv.gz"
+# )
+# 
+# df.set_index(adata.obs_names, inplace = True)
+# adata.obs = df.copy()
+# 
+# adata.obsm["spatial"] = adata.obs[["x_centroid","y_centroid"]].copy().to_numpy()
+# 
+# # Read RCTD annotations
+# annotations = pd.read_csv(
+#     "ANNOTATIONS.csv"
+# )
+# 
+# # Keep only malignant cells
+# annotations = annotations[~annotations.group.isin(["Necrotic","Mural","Endothelial","OPC","Microglia_Immune","Astrocytes","Neurons"])]
+# 
+# adata_sub = adata[annotations["cell_id"]].copy()
+# del(adata)
+# 
+# annotations.set_index(adata_sub.obs_names, inplace = True)
+# adata_sub.obs["type"]= annotations["group"].copy().astype('category')
+# 
+# adata_sub.obs['imageid'] = 'imageid'
+# 
+# adata_sub = sm.tl.spatial_interaction (adata_sub, 
+#                                   method='knn', 
+#                                   knn=10, 
+#                                   label='spatial_interaction_knn',
+#                                   x_coordinate = 'x_centroid', 
+#                                   y_coordinate = 'y_centroid',
+#                                   phenotype = 'type')
+# 
+# adata_sub.uns['spatial_interaction_knn'].to_csv("Output.csv", index=True)
+# 
+# # Export the interaction frequencies
+# sq.gr.spatial_neighbors(adata_sub, coord_type = "generic", delaunay = False, n_neighs = 10)
+# 
+# pd.DataFrame(adata_sub.uns["type_interactions"]).to_csv("interactions.csv")
 
-# Read expression matrix
-adata = sc.read_10x_h5(
-    filename = "cell_feature_matrix.h5"
-)
-
-# Read the cell info file
-df = pd.read_csv(
-    "cells.csv.gz"
-)
-
-df.set_index(adata.obs_names, inplace = True)
-adata.obs = df.copy()
-
-adata.obsm["spatial"] = adata.obs[["x_centroid","y_centroid"]].copy().to_numpy()
-
-# Read RCTD annotations
-annotations = pd.read_csv(
-    "ANNOTATIONS.csv"
-)
-
-# Keep only malignant cells
-annotations = annotations[~annotations.group.isin(["Necrotic","Mural","Endothelial","OPC","Microglia_Immune","Astrocytes","Neurons"])]
-
-adata_sub = adata[annotations["cell_id"]].copy()
-del(adata)
-
-annotations.set_index(adata_sub.obs_names, inplace = True)
-adata_sub.obs["type"]= annotations["group"].copy().astype('category')
-
-adata_sub.obs['imageid'] = 'imageid'
-
-adata_sub = sm.tl.spatial_interaction (adata_sub, 
-                                  method='knn', 
-                                  knn=10, 
-                                  label='spatial_interaction_knn',
-                                  x_coordinate = 'x_centroid', 
-                                  y_coordinate = 'y_centroid',
-                                  phenotype = 'type')
-
-adata_sub.uns['spatial_interaction_knn'].to_csv("Output.csv", index=True)
-
-# Export the interaction frequencies
-sq.gr.spatial_neighbors(adata_sub, coord_type = "generic", delaunay = False, n_neighs = 10)
-
-pd.DataFrame(adata_sub.uns["type_interactions"]).to_csv("interactions.csv")
 ```
 
